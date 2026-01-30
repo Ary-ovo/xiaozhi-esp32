@@ -629,6 +629,10 @@ elseif(CONFIG_BOARD_TYPE_HU_087)
     set(BOARD_TYPE "hu-087")
     set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)
     set(BUILTIN_ICON_FONT font_awesome_14_1)
+elseif(CONFIG_BOARD_TYPE_FOREST_HEART_S3)
+    set(BOARD_TYPE "forest-heart-s3") 
+    set(BUILTIN_TEXT_FONT font_puhui_basic_20_4) 
+    set(BUILTIN_ICON_FONT font_awesome_20_4)
 endif()
 
 file(GLOB BOARD_SOURCES

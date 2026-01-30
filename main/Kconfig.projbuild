@@ -476,6 +476,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_HU_087
         bool "HU-087"
         depends on IDF_TARGET_ESP32S3
+    config BOARD_TYPE_FOREST_HEART_S3
+        bool "Forest-Heart-S3"
+        depends on IDF_TARGET_ESP32S3
 endchoice
 
 choice
