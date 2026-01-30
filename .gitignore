@@ -1,12 +1,12 @@
 tmp/
-components/
+#components/
 managed_components/
 build/
 .vscode/
 .devcontainer/
 sdkconfig.old
 sdkconfig
-dependencies.lock
+#dependencies.lock
 .env
 releases/
 main/assets/lang_config.h

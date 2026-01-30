@@ -1,0 +1,3 @@
+[submodule "components/CalEPD"]
+	path = components/CalEPD
+	url = https://github.com/martinberlin/CalEPD.git
