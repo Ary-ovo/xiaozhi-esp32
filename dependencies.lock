@@ -851,7 +851,7 @@ dependencies:
       type: service
     version: 1.0.0
   txp666/otto-emoji-gif-component:
-    component_hash: f6fb3f74d46f696c4dc531b4d1c382d0733b0cbdc985b9d8704aff0de12fc43c
+    component_hash: 8da812ae44707af319a20e164e8b544199fe401436167c206e684594e0a38c5d
     dependencies:
     - name: lvgl/lvgl
       registry_url: https://components.espressif.com
@@ -860,7 +860,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.0.5
+    version: 1.1.1
   waveshare/esp_lcd_sh8601:
     component_hash: 1a2829e9db4e0515bad6ce83368f199dec60519fbba40251d6c8249f5d070ae1
     dependencies:

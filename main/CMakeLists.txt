@@ -812,6 +812,8 @@ idf_component_register(SRCS ${SOURCES}
                         console
                         efuse
                         bt
+                        esp_lcd
+                        esp_lcd_wft042
                     )
 
 # Use target_compile_definitions to define BOARD_TYPE, BOARD_NAME

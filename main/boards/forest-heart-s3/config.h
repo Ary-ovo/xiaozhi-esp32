@@ -29,10 +29,11 @@
 #define ENCODER_S               GPIO_NUM_13
 
 // E-INK Config
+#define DISPLAY_SPI_PORT        SPI2_HOST
 #define DISPLAY_SPI_SCK_PIN     GPIO_NUM_9
 #define DISPLAY_SPI_MOSI_PIN    GPIO_NUM_10
 #define DISPLAY_DC_PIN          GPIO_NUM_7
-#define DISPLAY_SPI_CS_PIN      -1
+#define DISPLAY_SPI_CS_PIN      GPIO_NUM_NC
 #define DISPLAY_BUSY_PIN        GPIO_NUM_6
 
 #define DISPLAY_WIDTH   400
