@@ -1,79 +1,63 @@
-/*
- * SPDX-FileCopyrightText: 2024 Your Name / Espressif Systems
- * SPDX-License-Identifier: Apache-2.0
- */
+/* esp_lcd_wft042.h */
 #pragma once
 
 #include <stdint.h>
 #include "esp_lcd_panel_vendor.h"
+#include "driver/gpio.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * @brief WFT042 (UC8176) panel initialization commands.
- */
+// 定义刷新模式
+typedef enum {
+    WFT042_MODE_FULL = 0,   // 全刷 (黑白, 闪烁, 清残影)
+    WFT042_MODE_PARTIAL,    // 局刷 (黑白, 快速, 无闪烁)
+    WFT042_MODE_GRAY_4L     // 灰度 (4级灰度, 较慢)
+} wft042_refresh_mode_t;
+
+// 初始化命令结构
 typedef struct {
-    int cmd;                /*<! The specific E-Ink command */
-    const void *data;       /*<! Buffer that holds the command specific data */
-    size_t data_bytes;      /*<! Size of `data` in memory, in bytes */
-    unsigned int delay_ms;  /*<! Delay in milliseconds after this command */
+    int cmd;
+    const void *data;
+    size_t data_bytes;
+    unsigned int delay_ms;
 } wft042_init_cmd_t;
 
-/**
- * @brief WFT042 panel vendor configuration.
- *
- * @note  This structure needs to be passed to the `vendor_config` field in `esp_lcd_panel_dev_config_t`.
- */
+// Vendor 配置
 typedef struct {
-    const wft042_init_cmd_t *init_cmds;    /*!< Pointer to initialization commands array. */
-    uint16_t init_cmds_size;               /*<! Number of commands in above array */
-    
-    // --- E-Ink 特有配置 ---
-    int busy_gpio_num;      /*<! GPIO number for the BUSY signal (Mandatory for E-Ink) */
-    int busy_level;         /*<! Logic level when the screen is BUSY (0 or 1). Usually 0 (Low) for WFT042 */
+    const wft042_init_cmd_t *init_cmds;
+    uint16_t init_cmds_size;
+    int busy_gpio_num;      
+    int busy_level;         
 } wft042_vendor_config_t;
 
-/**
- * @brief Create LCD panel for model WFT042CZ15 (E-Ink)
- *
- * @param[in]  io LCD panel IO handle
- * @param[in]  panel_dev_config General panel device configuration
- * @param[out] ret_panel Returned LCD panel handle
- * @return
- * - ESP_OK: Success
- * - Otherwise: Fail
- */
 esp_err_t esp_lcd_new_panel_wft042(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel_dev_config_t *panel_dev_config, esp_lcd_panel_handle_t *ret_panel);
 
 /**
- * @brief WFT042 panel bus configuration structure (Standard SPI)
- *
+ * @brief 切换屏幕刷新模式 (全刷 / 局刷 / 灰度)
+ * @param panel 面板句柄
+ * @param mode 模式枚举
  */
-// 修改后的宏定义：严格遵循 ESP-IDF spi_bus_config_t 的结构体定义顺序
+esp_err_t esp_lcd_panel_wft042_set_mode(esp_lcd_panel_handle_t panel, wft042_refresh_mode_t mode);
+
+// 宏定义保持不变
 #define WFT042_PANEL_BUS_SPI_CONFIG(sclk, mosi, max_trans_sz)   \
     {                                                           \
-        .mosi_io_num = mosi,       /* 1. MOSI */                \
-        .miso_io_num = -1,         /* 2. MISO */                \
-        .sclk_io_num = sclk,       /* 3. SCLK */                \
-        .quadwp_io_num = -1,       /* 4. WP */                  \
-        .quadhd_io_num = -1,       /* 5. HD */                  \
-        .max_transfer_sz = max_trans_sz, /* ... max_sz */       \
+        .mosi_io_num = mosi,                                    \
+        .miso_io_num = -1,                                      \
+        .sclk_io_num = sclk,                                    \
+        .quadwp_io_num = -1,                                    \
+        .quadhd_io_num = -1,                                    \
+        .max_transfer_sz = max_trans_sz,                        \
     }
 
-/**
- * @brief WFT042 panel IO configuration structure
- *
- * @note E-Ink displays generally require lower SPI frequency (e.g., 4MHz - 10MHz).
- * Do NOT use 40MHz like TFTs.
- */
 #define WFT042_PANEL_IO_SPI_CONFIG(cs, dc, cb, cb_ctx)          \
     {                                                           \
         .cs_gpio_num = cs,                                      \
         .dc_gpio_num = dc,                                      \
         .spi_mode = 0,                                          \
-        .pclk_hz = 5 * 1000 * 1000,   /* Default: 5MHz */       \
+        .pclk_hz = 5 * 1000 * 1000,                             \
         .trans_queue_depth = 10,                                \
         .on_color_trans_done = cb,                              \
         .user_ctx = cb_ctx,                                     \
