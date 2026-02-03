@@ -1,0 +1,12 @@
+diff --git a/.gitignore b/.gitignore
+index f08d9c7..2e1880c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,6 +1,6 @@
+ tmp/
+ #components/
+-managed_components/
++#managed_components/
+ build/
+ .vscode/
+ .devcontainer/
