@@ -95,8 +95,32 @@ private:
         // 注意：这里将 CS 永久拉低，意味着 SPI 总线上不能有其他设备共享
         uint8_t output_val = (0 << TCA_PORT_EPD_CS) | (1 << TCA_PORT_EPD_RES);
         Tca9537WriteReg(0x01, output_val);
-        
         ESP_LOGI(TAG, "EPD CS locked LOW, RST pulled HIGH via I2C");
+
+        ESP_LOGI(TAG, "Resetting EPD via TCA9537 (P2)...");
+
+        // [Step A] 配置 P2 为输出模式 (寄存器 0x03)
+        // Bit 2 设为 0 (Output)，其他位保持 1 (Input) 以防干扰
+        // 1111 1011 = 0xFB
+        Tca9537WriteReg(0x03, 0xFB);
+
+        // [Step B] 拉低 RST (复位有效) (寄存器 0x01)
+        // Bit 2 设为 0 (Low)，其他位保持 1 (High)
+        // 1111 1011 = 0xFB
+        Tca9537WriteReg(0x01, 0xFB);
+        
+        // 保持低电平 > 10ms
+        vTaskDelay(pdMS_TO_TICKS(20));
+
+        // [Step C] 拉高 RST (释放复位) (寄存器 0x01)
+        // Bit 2 设为 1 (High)
+        // 1111 1111 = 0xFF
+        Tca9537WriteReg(0x01, 0xFF);
+        
+        // 等待屏幕内部初始化 > 20ms
+        vTaskDelay(pdMS_TO_TICKS(20));
+        
+        ESP_LOGI(TAG, "EPD Reset Complete.");
     }
 
     // 初始化 SPI 总线 (标准 SPI)
@@ -175,7 +199,7 @@ public:
         InitializeSpi();
 
         // 4. 墨水屏初始化 & UI 启动
-        // InitializeGDEW042T2Display();
+        InitializeGDEW042T2Display();
     }
 
     virtual AudioCodec* GetAudioCodec() override {
@@ -187,8 +211,8 @@ public:
 
 
     virtual Display* GetDisplay() override {
-        return nullptr; 
-        // return display_;
+        // return nullptr; 
+        return display_;
     }
 };
 

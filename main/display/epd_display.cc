@@ -199,8 +199,8 @@ EpdDisplay::EpdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
     // 2. Allocate Buffers
     // Use PSRAM for the large drawing buffers to save internal RAM
     // Add 4KB padding to act as a "safety airbag" against overflows
-    draw_buf_ = heap_caps_malloc(draw_buf_size + 4096, MALLOC_CAP_SPIRAM);
-    lvgl_buf_ = heap_caps_malloc(full_1bpp_size + 4096, MALLOC_CAP_SPIRAM);
+    draw_buf_ = heap_caps_malloc(draw_buf_size, MALLOC_CAP_SPIRAM);
+    lvgl_buf_ = heap_caps_malloc(full_1bpp_size, MALLOC_CAP_SPIRAM);
     
     // Use INTERNAL RAM for the hardware snapshot.
     // [CRITICAL]: We OVER-ALLOCATE (32KB instead of 15KB) to guarantee

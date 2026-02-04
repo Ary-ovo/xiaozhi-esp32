@@ -813,6 +813,7 @@ idf_component_register(SRCS ${SOURCES}
                         console
                         efuse
                         bt
+                        esp_lvgl_port
                         esp_lcd_gdew042t2
                     )
 
