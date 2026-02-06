@@ -12,6 +12,10 @@ public:
     int GetBatteryLevel();
     float GetTemperature();
     void PowerOff();
+    void PowerOnALDO1();
+    void PowerOffALDO1();
+    void PowerOnALDO2();
+    void PowerOffALDO2();
 
 private:
     int GetBatteryCurrentDirection();

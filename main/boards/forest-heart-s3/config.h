@@ -64,4 +64,9 @@
 #define TCA9537_RST_PIN         GPIO_NUM_12
 #define TCA9537_INT_PIN         GPIO_NUM_42
 
+// 引脚定义 (请根据您的原理图核对)
+#define IO_EXP_PIN_SPK   1  // P1: 喇叭 (1=开, 0=关)
+#define IO_EXP_PIN_RST   2  // P2: EPD复位 (0=复位, 1=工作)
+#define IO_EXP_PIN_CS    3  // P3: EPD片选 (0=选中, 1=取消)
+
 #endif // _BOARD_CONFIG_H_

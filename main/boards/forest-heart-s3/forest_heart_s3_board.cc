@@ -4,7 +4,7 @@
 #include "application.h"
 #include "i2c_device.h"
 #include "config.h"
-
+#include "axp2101.h"
 #include <esp_log.h>
 #include <driver/i2c_master.h>
 #include "driver/gpio.h"
@@ -12,6 +12,7 @@
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_timer.h>
+#include "tca9537.h"
 
 // 引入墨水屏底层驱动头文件
 #include "esp_lcd_gdew042t2.h"
@@ -28,6 +29,9 @@
 #define TCA9537_ADDR        0x49
 #define TCA_PORT_EPD_CS     3
 #define TCA_PORT_EPD_RES    2
+#define TCA9537_RST_GPIO    12    // TCA9537 的 RST 复位引脚 (假设是 GPIO 12，请修改!)
+#define TCA9537_REG_OUTPUT  0x01  // 输出端口寄存器
+#define TCA9537_REG_CONFIG  0x03  // 配置寄存器
 
 // 确保在 config.h 中定义了分辨率，或者在这里硬编码
 #ifndef DISPLAY_WIDTH
@@ -37,29 +41,64 @@
 #define DISPLAY_HEIGHT 300
 #endif
 
+class Pmic : public Axp2101 {
+public:
+    // Power Init
+    Pmic(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Axp2101(i2c_bus, addr) {
+            WriteReg(0x22, 0b110); // PWRON > OFFLEVEL as POWEROFF Source enable
+            WriteReg(0x27, 0x10);  // hold 4s to power off
+    
+            // Disable All DCs but DC1
+            WriteReg(0x80, 0x01);
+            // Disable All LDOs
+            WriteReg(0x90, 0x00);
+            WriteReg(0x91, 0x00);
+    
+            // Set DC1 to 3.3V
+            WriteReg(0x82, (3300 - 1500) / 100);
+    
+            // Set ALDO1 to 3.3V
+            WriteReg(0x92, (3300 - 500) / 100);
+
+            WriteReg(0x96, (1500 - 500) / 100);
+            WriteReg(0x97, (2800 - 500) / 100);
+    
+            // Enable ALDO1 BLDO1 BLDO2 
+            WriteReg(0x90, 0x31);
+            
+            WriteReg(0x64, 0x02); // CV charger voltage setting to 4.1V
+            WriteReg(0x61, 0x02); // set Main battery precharge current to 50mA
+            WriteReg(0x62, 0x08); // set Main battery charger current to 400mA ( 0x08-200mA, 0x09-300mA, 0x0A-400mA )
+            WriteReg(0x63, 0x01); // set Main battery term charge current to 25mA
+    }
+};
+
+class IoExpander : public Tca9537 {
+public:
+    // 构造函数：在这里完成初始化配置
+    IoExpander(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Tca9537(i2c_bus, addr){
+        ESP_LOGI(TAG, "Initializing IoExpander (TCA9537)...");
+        gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
+        gpio_set_level(GPIO_NUM_12, 1);
+        vTaskDelay(20);
+        uint8_t output_val = 0x06;
+        uint8_t config_val = 0x01;
+        WriteReg(0x01, output_val);
+        WriteReg(0x03, config_val);
+        ESP_LOGI(TAG, "Init Complete: Speaker ON(P1=H), EPD RST(P2=H), EPD CS(P3=L)");
+    }
+};
+
 class ForestHeartS3 : public WifiBoard {
 private:
     i2c_master_bus_handle_t i2c_bus_;
+    Pmic* pmic_;
     Display* display_ = nullptr; // 使用基类指针，指向 EpdDisplay 实例
-
-    // TCA9537 寄存器写入辅助函数
-    void Tca9537WriteReg(uint8_t reg, uint8_t val) {
-        uint8_t write_buf[2] = {reg, val};
-        i2c_device_config_t dev_cfg = {
-            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-            .device_address = TCA9537_ADDR,
-            .scl_speed_hz = 400000,
-        };
-        i2c_master_dev_handle_t dev_handle;
-        ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c_bus_, &dev_cfg, &dev_handle));
-        ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, write_buf, sizeof(write_buf), -1));
-        i2c_master_bus_rm_device(dev_handle);
-    }
-
+    IoExpander* ioexpander_ = nullptr;
     // 初始化 I2C 总线
     void InitializeI2c() {
         i2c_master_bus_config_t i2c_bus_cfg = {
-            .i2c_port = (i2c_port_t)0, 
+            .i2c_port = I2C_NUM_0, 
             .sda_io_num = I2C_SDA_PIN, // 确保 config.h 定义了这些
             .scl_io_num = I2C_SCL_PIN, 
             .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -73,54 +112,15 @@ private:
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
     }
 
-    // 墨水屏硬件预处理：通过 I2C 扩展芯片拉低 CS，拉高 RES
-    void EpdHwPreInit() {
-        ESP_LOGI(TAG, "Initializing TCA9537 for EPD CS/RST...");
-        
-        // 1. 复位 TCA9537 (GPIO 12) - 这一步是激活扩展芯片
-        gpio_reset_pin((gpio_num_t)12);
-        gpio_set_direction((gpio_num_t)12, GPIO_MODE_OUTPUT);
-        gpio_set_level((gpio_num_t)12, 0);
-        vTaskDelay(pdMS_TO_TICKS(10));
-        gpio_set_level((gpio_num_t)12, 1);
+    void InitializeAxp2101() {
+        ESP_LOGI(TAG, "Init AXP2101");
+        pmic_ = new Pmic(i2c_bus_, 0x34);
         vTaskDelay(pdMS_TO_TICKS(50));
+    }
 
-        // 2. 配置扩展引脚
-        // Config Reg (0x03): Set P2(CS) and P3(RES) to Output (0)
-        // 假设其他引脚保持输入 (1) -> 1111 0011 = 0xF3
-        uint8_t config_val = 0xFF & ~((1 << TCA_PORT_EPD_CS) | (1 << TCA_PORT_EPD_RES));
-        Tca9537WriteReg(0x03, config_val);
-
-        // Output Reg (0x01): Set CS=Low(0), RES=High(1)
-        // 注意：这里将 CS 永久拉低，意味着 SPI 总线上不能有其他设备共享
-        uint8_t output_val = (0 << TCA_PORT_EPD_CS) | (1 << TCA_PORT_EPD_RES);
-        Tca9537WriteReg(0x01, output_val);
-        ESP_LOGI(TAG, "EPD CS locked LOW, RST pulled HIGH via I2C");
-
-        ESP_LOGI(TAG, "Resetting EPD via TCA9537 (P2)...");
-
-        // [Step A] 配置 P2 为输出模式 (寄存器 0x03)
-        // Bit 2 设为 0 (Output)，其他位保持 1 (Input) 以防干扰
-        // 1111 1011 = 0xFB
-        Tca9537WriteReg(0x03, 0xFB);
-
-        // [Step B] 拉低 RST (复位有效) (寄存器 0x01)
-        // Bit 2 设为 0 (Low)，其他位保持 1 (High)
-        // 1111 1011 = 0xFB
-        Tca9537WriteReg(0x01, 0xFB);
-        
-        // 保持低电平 > 10ms
-        vTaskDelay(pdMS_TO_TICKS(20));
-
-        // [Step C] 拉高 RST (释放复位) (寄存器 0x01)
-        // Bit 2 设为 1 (High)
-        // 1111 1111 = 0xFF
-        Tca9537WriteReg(0x01, 0xFF);
-        
-        // 等待屏幕内部初始化 > 20ms
-        vTaskDelay(pdMS_TO_TICKS(20));
-        
-        ESP_LOGI(TAG, "EPD Reset Complete.");
+    void EpdHwPreInit() {
+        ESP_LOGI(TAG, "EPD Hardware Config");
+        ioexpander_ = new IoExpander(i2c_bus_, 0x49);
     }
 
     // 初始化 SPI 总线 (标准 SPI)
@@ -187,11 +187,34 @@ private:
         display_ = new EpdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
 
+    void I2cDetect() {
+        uint8_t address;
+        printf("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
+        for (int i = 0; i < 128; i += 16) {
+            printf("%02x: ", i);
+            for (int j = 0; j < 16; j++) {
+                fflush(stdout);
+                address = i + j;
+                esp_err_t ret = i2c_master_probe(i2c_bus_, address, pdMS_TO_TICKS(200));
+                if (ret == ESP_OK) {
+                    printf("%02x ", address);
+                } else if (ret == ESP_ERR_TIMEOUT) {
+                    printf("UU ");
+                } else {
+                    printf("-- ");
+                }
+            }
+            printf("\r\n");
+        }
+    }
+
 public:
-    ForestHeartS3() {
-        // 1. 初始化 I2C 总线 (用于 TCA9537 和 触摸)
+    ForestHeartS3(){
+        // 1. 初始化 I2C 总线 (用于 TCA9537)
         InitializeI2c();
         
+        InitializeAxp2101();
+        I2cDetect();
         // 2. EPD 硬件预处理 (控制 TCA9537 拉低 CS，拉高 RST)
         EpdHwPreInit();
 
@@ -209,9 +232,7 @@ public:
         return &audio_codec;
     }
 
-
     virtual Display* GetDisplay() override {
-        // return nullptr; 
         return display_;
     }
 };
