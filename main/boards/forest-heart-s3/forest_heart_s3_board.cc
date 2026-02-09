@@ -5,13 +5,9 @@
 #include "i2c_device.h"
 #include "config.h"
 #include "axp2101.h"
+#include "sdmmc.h"
 #include <esp_log.h>
-#include <driver/i2c_master.h>
 #include "driver/gpio.h"
-#include <driver/spi_master.h>
-#include <esp_lcd_panel_io.h>
-#include <esp_lcd_panel_ops.h>
-#include <esp_timer.h>
 #include "tca9537.h"
 
 // 引入墨水屏底层驱动头文件
@@ -19,35 +15,13 @@
 
 #define TAG "ForestHeartS3"
 
-#define EPD_SPI_HOST        SPI2_HOST
-#define PIN_NUM_EPD_MOSI    10
-#define PIN_NUM_EPD_CLK     9
-#define PIN_NUM_EPD_DC      7
-#define PIN_NUM_EPD_BUSY    6
-
-// --- TCA9537 I2C 扩展引脚定义 ---
-#define TCA9537_ADDR        0x49
-#define TCA_PORT_EPD_CS     3
-#define TCA_PORT_EPD_RES    2
-#define TCA9537_RST_GPIO    12    // TCA9537 的 RST 复位引脚 (假设是 GPIO 12，请修改!)
-#define TCA9537_REG_OUTPUT  0x01  // 输出端口寄存器
-#define TCA9537_REG_CONFIG  0x03  // 配置寄存器
-
-// 确保在 config.h 中定义了分辨率，或者在这里硬编码
-#ifndef DISPLAY_WIDTH
-#define DISPLAY_WIDTH 400
-#endif
-#ifndef DISPLAY_HEIGHT
-#define DISPLAY_HEIGHT 300
-#endif
-
 class Pmic : public Axp2101 {
 public:
     // Power Init
     Pmic(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Axp2101(i2c_bus, addr) {
+        
             WriteReg(0x22, 0b110); // PWRON > OFFLEVEL as POWEROFF Source enable
             WriteReg(0x27, 0x10);  // hold 4s to power off
-    
             // Disable All DCs but DC1
             WriteReg(0x80, 0x01);
             // Disable All LDOs
@@ -59,12 +33,9 @@ public:
     
             // Set ALDO1 to 3.3V
             WriteReg(0x92, (3300 - 500) / 100);
-
-            WriteReg(0x96, (1500 - 500) / 100);
-            WriteReg(0x97, (2800 - 500) / 100);
     
-            // Enable ALDO1 BLDO1 BLDO2 
-            WriteReg(0x90, 0x31);
+            // Enable ALDO1 ALDO2 Disable Other LDO
+            WriteReg(0x90, 0x03);
             
             WriteReg(0x64, 0x02); // CV charger voltage setting to 4.1V
             WriteReg(0x61, 0x02); // set Main battery precharge current to 50mA
@@ -73,19 +44,193 @@ public:
     }
 };
 
+// Init SDmmc and LVGL file systerm
+class Sdmmc : public SdCard {
+private:
+    static void fs_make_path(char * buffer, const char * path) {
+        if(path[0] == '/') {
+            snprintf(buffer, 256, "%s%s", MOUNT_POINT, path);
+        } else {
+            snprintf(buffer, 256, "%s/%s", MOUNT_POINT, path);
+        }
+    }
+    static void * fs_open(lv_fs_drv_t * drv, const char * path, lv_fs_mode_t mode) {
+        const char * flags = "";
+        if(mode == LV_FS_MODE_WR) flags = "w";
+        else if(mode == LV_FS_MODE_RD) flags = "r";
+        else if(mode == (LV_FS_MODE_WR | LV_FS_MODE_RD)) flags = "r+";
+
+        char real_path[256];
+        fs_make_path(real_path, path);
+
+        FILE * f = fopen(real_path, flags);
+        if(f == NULL) return NULL;
+
+        return (void *)f; // 返回文件指针作为句柄
+    }
+    static lv_fs_res_t fs_close(lv_fs_drv_t * drv, void * file_p) {
+        FILE * f = (FILE *)file_p;
+        fclose(f);
+        return LV_FS_RES_OK;
+    }
+    /* ==========================================================
+    * Callback: 读取文件
+    * ========================================================== */
+    static lv_fs_res_t fs_read(lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br) {
+        FILE * f = (FILE *)file_p;
+        *br = fread(buf, 1, btr, f);
+        return LV_FS_RES_OK;
+    }
+    /* ==========================================================
+    * Callback: 写入文件
+    * ========================================================== */
+    static lv_fs_res_t fs_write(lv_fs_drv_t * drv, void * file_p, const void * buf, uint32_t btw, uint32_t * bw) {
+        FILE * f = (FILE *)file_p;
+        *bw = fwrite(buf, 1, btw, f);
+        return LV_FS_RES_OK;
+    }
+    /* ==========================================================
+    * Callback: 定位 (Seek)
+    * ========================================================== */
+    static lv_fs_res_t fs_seek(lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence) {
+        FILE * f = (FILE *)file_p;
+        int mode;
+        switch(whence) {
+            case LV_FS_SEEK_SET: mode = SEEK_SET; break;
+            case LV_FS_SEEK_CUR: mode = SEEK_CUR; break;
+            case LV_FS_SEEK_END: mode = SEEK_END; break;
+            default: mode = SEEK_SET;
+        }
+        fseek(f, pos, mode);
+        return LV_FS_RES_OK;
+    }
+    /* ==========================================================
+    * Callback: 获取位置 (Tell)
+    * ========================================================== */
+    static lv_fs_res_t fs_tell(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p) {
+        FILE * f = (FILE *)file_p;
+        *pos_p = ftell(f);
+        return LV_FS_RES_OK;
+    }
+    static void * fs_dir_open(lv_fs_drv_t * drv, const char * path) {
+        char real_path[256];
+        if (path == NULL || strlen(path) == 0 || strcmp(path, "/") == 0) {
+            snprintf(real_path, sizeof(real_path), "%s", MOUNT_POINT);
+        } else {
+            snprintf(real_path, sizeof(real_path), "%s/%s", MOUNT_POINT, path);
+        }
+
+        DIR * d = opendir(real_path);
+        if (d == NULL) return NULL;
+        return (void *)d;
+    }
+
+    static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint32_t fn_len) {
+        DIR * d = (DIR *)dir_p;
+        struct dirent * entry;
+
+        entry = readdir(d);
+        if (entry) {
+            strncpy(fn, entry->d_name, fn_len);
+            if (fn_len > 0) fn[fn_len - 1] = '\0';
+        } else {
+            if (fn_len > 0) fn[0] = '\0';
+        }
+        return LV_FS_RES_OK;
+    }
+
+    static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p) {
+        closedir((DIR *)dir_p);
+        return LV_FS_RES_OK;
+    }
+public:
+    // Init SDmmc 
+    Sdmmc(const char* mount_point, 
+        gpio_num_t clk, 
+        gpio_num_t cmd, 
+        gpio_num_t d0, 
+        gpio_num_t d1 = GPIO_NUM_NC,
+        gpio_num_t d2 = GPIO_NUM_NC, 
+        gpio_num_t d3 = GPIO_NUM_NC,
+        bool format_if_mount_failed = false) : 
+    SdCard(mount_point, clk, cmd, d0, d1, d2, d3, format_if_mount_failed){
+        ESP_LOGI(TAG, "Mounting LVGL File Systerm....");
+        lv_port_fs_init();
+    }
+    void lv_port_fs_init(void) {
+        static lv_fs_drv_t fs_drv;
+        lv_fs_drv_init(&fs_drv);
+        fs_drv.letter = LVGL_FS_LETTER;
+        fs_drv.open_cb = fs_open;
+        fs_drv.close_cb = fs_close;
+        fs_drv.read_cb = fs_read;
+        fs_drv.write_cb = fs_write;
+        fs_drv.seek_cb = fs_seek;
+        fs_drv.tell_cb = fs_tell;
+        fs_drv.dir_open_cb = fs_dir_open;
+        fs_drv.dir_read_cb = fs_dir_read;
+        fs_drv.dir_close_cb = fs_dir_close;
+
+        lv_fs_drv_register(&fs_drv);
+        ESP_LOGI(TAG, "LVGL File System registered for '%c:' -> '/sdcard'\n", LVGL_FS_LETTER);
+    }
+};
+
 class IoExpander : public Tca9537 {
 public:
-    // 构造函数：在这里完成初始化配置
-    IoExpander(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Tca9537(i2c_bus, addr){
-        ESP_LOGI(TAG, "Initializing IoExpander (TCA9537)...");
-        gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
-        gpio_set_level(GPIO_NUM_12, 1);
-        vTaskDelay(20);
-        uint8_t output_val = 0x06;
-        uint8_t config_val = 0x01;
+    // Init TCA9537
+    IoExpander(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Tca9537(i2c_bus, addr) {
+        ESP_LOGI(TAG, "Start IoExpander Sequence...");
+        // 1. 硬件复位引脚操作 (复位 TCA9537 芯片本身)
+        gpio_set_direction(TCA9537_RST_PIN, GPIO_MODE_OUTPUT);
+        gpio_set_level(TCA9537_RST_PIN, 0);
+        vTaskDelay(pdMS_TO_TICKS(20));
+        gpio_set_level(TCA9537_RST_PIN, 1);
+        vTaskDelay(pdMS_TO_TICKS(20)); // 等待芯片苏醒
+        // 定义状态变量
+        uint8_t output_state = 0;
+        // 全低 50ms (All Low)
+        // 先写 Output Reg = 0x00，确保一配置成输出就是低电平
+        WriteReg(0x01, 0x00); 
+        output_state = 0x00;
+        // 配置 Config Reg: 0x00 (全为输出)
+        // 此时引脚真正被拉低
+        WriteReg(0x03, 0x00);
+        output_state |= (1 << 0);
+        ESP_LOGI(TAG, "Step 1: All Low (Wait 50ms)");
+        vTaskDelay(pdMS_TO_TICKS(50));
+        // P2 RES 置高, 延迟 100ms
+        output_state |= (1 << IO_EXP_PIN_RST);
+        WriteReg(0x01, output_state);
+        ESP_LOGI(TAG, "Step 2: P2 RES High (Wait 100ms)");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        // P3 CS 拉低, 延时 10ms   
+        ESP_LOGI(TAG, "Step 3: P3 CS Low (Wait 10ms)");
+        vTaskDelay(pdMS_TO_TICKS(10));
+        // P1 PA_EN 拉高
+        output_state |= (1 << IO_EXP_PIN_SPK); 
+        WriteReg(0x01, output_state);
+        ESP_LOGI(TAG, "Step 4: P1 PA_EN High (Sequence Done)");
+        ESP_LOGI(TAG, "Init Complete: PA_EN=H, RES=H, CS=L");
+    }
+    void EpdReset(void){
+        uint8_t output_val = ReadReg(0x01);
+        output_val &= ~(1 << IO_EXP_PIN_RST);
         WriteReg(0x01, output_val);
-        WriteReg(0x03, config_val);
-        ESP_LOGI(TAG, "Init Complete: Speaker ON(P1=H), EPD RST(P2=H), EPD CS(P3=L)");
+        vTaskDelay(pdMS_TO_TICKS(20));
+        output_val |= (1 << IO_EXP_PIN_RST);
+        WriteReg(0x01, output_val);
+        vTaskDelay(100);
+    }
+    void EpdSetCs(void)
+    {
+        uint8_t output_val = ReadReg(0x01);
+        output_val |= (1 << IO_EXP_PIN_CS);
+        WriteReg(0x01, output_val);
+        vTaskDelay(pdMS_TO_TICKS(20));
+        output_val &= ~(1 << IO_EXP_PIN_CS);
+        WriteReg(0x01, output_val);
+        vTaskDelay(100);
     }
 };
 
@@ -93,13 +238,14 @@ class ForestHeartS3 : public WifiBoard {
 private:
     i2c_master_bus_handle_t i2c_bus_;
     Pmic* pmic_;
-    Display* display_ = nullptr; // 使用基类指针，指向 EpdDisplay 实例
+    Display* display_ = nullptr;
     IoExpander* ioexpander_ = nullptr;
+    Sdmmc* sdmmc_ = nullptr;
     // 初始化 I2C 总线
     void InitializeI2c() {
         i2c_master_bus_config_t i2c_bus_cfg = {
-            .i2c_port = I2C_NUM_0, 
-            .sda_io_num = I2C_SDA_PIN, // 确保 config.h 定义了这些
+            .i2c_port = I2C_PORT, 
+            .sda_io_num = I2C_SDA_PIN, 
             .scl_io_num = I2C_SCL_PIN, 
             .clk_source = I2C_CLK_SRC_DEFAULT,
             .glitch_ignore_cnt = 7,
@@ -111,44 +257,40 @@ private:
         };
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
     }
-
+    // Init AXP2101
     void InitializeAxp2101() {
         ESP_LOGI(TAG, "Init AXP2101");
-        pmic_ = new Pmic(i2c_bus_, 0x34);
+        pmic_ = new Pmic(i2c_bus_, AXP2101_I2C_ADDR);
         vTaskDelay(pdMS_TO_TICKS(50));
     }
-
+    // Enable EPD Pin Presetting
     void EpdHwPreInit() {
         ESP_LOGI(TAG, "EPD Hardware Config");
-        ioexpander_ = new IoExpander(i2c_bus_, 0x49);
+        ioexpander_ = new IoExpander(i2c_bus_, TCA9537_ADDR);
     }
-
     // 初始化 SPI 总线 (标准 SPI)
     void InitializeSpi() {
         ESP_LOGI(TAG, "Initialize SPI bus for EPD");
 
         spi_bus_config_t buscfg = {
-            .mosi_io_num = PIN_NUM_EPD_MOSI,
+            .mosi_io_num = DISPLAY_SPI_MOSI_PIN,
             .miso_io_num = -1,
-            .sclk_io_num = PIN_NUM_EPD_CLK,
+            .sclk_io_num = DISPLAY_SPI_SCK_PIN,
             .quadwp_io_num = -1,
             .quadhd_io_num = -1,
             .max_transfer_sz = DISPLAY_WIDTH * DISPLAY_HEIGHT / 8 + 100, // 400x300 1bpp
         };
         ESP_ERROR_CHECK(spi_bus_initialize(EPD_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
     }
-
     // 初始化墨水屏并创建 Display 对象
     void InitializeGDEW042T2Display() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-
         ESP_LOGI(TAG, "Install Panel IO");
-        
         // CS 引脚设为 -1，因为已经由 TCA9537 锁定为低电平
         const esp_lcd_panel_io_spi_config_t io_config = {
-            .cs_gpio_num = -1,
-            .dc_gpio_num = PIN_NUM_EPD_DC,
+            .cs_gpio_num = DISPLAY_SPI_CS_PIN,
+            .dc_gpio_num = DISPLAY_DC_PIN,
             .spi_mode = 0,
             .pclk_hz = 10 * 1000 * 1000, // EPD 推荐 10MHz
             .trans_queue_depth = 10,
@@ -159,34 +301,43 @@ private:
 
         ESP_LOGI(TAG, "Install GDEW042T2 Panel Driver");
 
-        // 配置 EPD 特有的 Busy 引脚
+        // 1. 【修改】结构体名称改为 t2
         esp_lcd_panel_gdew042t2_config_t vendor_config = {
-            .busy_gpio_num = PIN_NUM_EPD_BUSY,
-            .busy_active_level = 0, // 0: Low = Busy, 1: High = Busy (请根据数据手册确认，通常是 0)
+            .busy_gpio_num = DISPLAY_BUSY_PIN,
+            .busy_active_level = 0, // Low = Busy
         };
-
         const esp_lcd_panel_dev_config_t panel_config = {
-            .reset_gpio_num = -1, // 复位已由 TCA9537 处理
+            .reset_gpio_num = DISPLAY_RESET_PIN, 
             .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
-            .bits_per_pixel = 1,  // 1 bit per pixel
+            .bits_per_pixel = 16,
             .vendor_config = &vendor_config,
         };
-        
+        // 2. 【建议恢复】硬件复位逻辑
+        // 因为你的 RST 和 CS 接在 IO 扩展芯片上，强烈建议保留这部分
+        ioexpander_->EpdSetCs(); 
+        ioexpander_->EpdReset(); 
+        // 3. 【修改】创建函数改为 t2
         ESP_ERROR_CHECK(esp_lcd_new_panel_gdew042t2(panel_io, &panel_config, &panel));
-
-        // 执行初始化序列 (复位 -> 初始化命令)
-        esp_lcd_panel_reset(panel); 
-        esp_lcd_panel_init(panel);
-        
-        // 默认设置为全刷模式，显示更清晰，后续由 EpdDisplay 管理模式切换
-        esp_lcd_gdew042t2_set_mode(panel, GDEW042T2_REFRESH_FULL); 
-
-        ESP_LOGI(TAG, "Instantiating EpdDisplay");
-        // <--- 修改点 2: 实例化你写的 EpdDisplay --->
-        // EpdDisplay 构造函数: (panel_io, panel, width, height)
+        // 4. 软件复位 (如果 RST 引脚无效，这行其实没用，但留着无妨)
+        esp_lcd_panel_reset(panel);
+        // 5. 初始化面板
+        ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
+        // 6. 【修改】模式设置改为 t2 的 set_mode
+        // GDEW042T2_REFRESH_FULL = 0 (对应之前的 false 全刷)
+        esp_lcd_gdew042t2_set_mode(panel, GDEW042T2_REFRESH_FULL);
+        // 7. 创建上层对象
         display_ = new EpdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
-
+    // Init sdmmc
+    void Sdmmc_Init(){
+        bool card_state = false;
+        sdmmc_ = new Sdmmc(MOUNT_POINT, SD_MMC_CLK, SD_MMC_CMD, SD_MMC_D0, SD_MMC_D1, SD_MMC_D2, SD_MMC_D3, card_state);
+        if (card_state)
+        {
+            ESP_LOGE(TAG, "SDmmc Init Fail");
+        }else ESP_LOGI(TAG, "SDmmc Init Success");
+    }
+    // Scan i2c devices
     void I2cDetect() {
         uint8_t address;
         printf("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
@@ -210,23 +361,28 @@ private:
 
 public:
     ForestHeartS3(){
-        // 1. 初始化 I2C 总线 (用于 TCA9537)
+        size_t internal_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+        size_t spiram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+        ESP_LOGI(TAG, " Internal RAM Total: %d bytes (%.2f KB)", internal_total, internal_total / 1024.0);
+        ESP_LOGI(TAG, " External RAM Total: %d bytes (%.2f MB)", spiram_total, spiram_total / 1024.0 / 1024.0);
+        // 初始化 I2C 总线 (用于 TCA9537)
         InitializeI2c();
-        
+        // Init SDcard
+        Sdmmc_Init();
+        // Set up All Device Power
         InitializeAxp2101();
-        I2cDetect();
-        // 2. EPD 硬件预处理 (控制 TCA9537 拉低 CS，拉高 RST)
+        // EPD 硬件预处理 (控制 TCA9537 拉低 CS，拉高 RST)
         EpdHwPreInit();
-
-        // 3. SPI 初始化
+        // Check I2c Device
+        I2cDetect();
+        // SPI 初始化
         InitializeSpi();
-
-        // 4. 墨水屏初始化 & UI 启动
+        // 墨水屏初始化 & UI 启动
         InitializeGDEW042T2Display();
     }
 
     virtual AudioCodec* GetAudioCodec() override {
-        static Es8311AudioCodec audio_codec(i2c_bus_, I2C_NUM_0, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
+        static Es8311AudioCodec audio_codec(i2c_bus_, I2C_PORT, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
             AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
             GPIO_NUM_NC, AUDIO_CODEC_ES8311_ADDR);
         return &audio_codec;

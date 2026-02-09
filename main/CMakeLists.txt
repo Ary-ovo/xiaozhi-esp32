@@ -61,6 +61,7 @@ list(APPEND SOURCES
     "boards/common/sy6970.cc"
     "boards/common/system_reset.cc"
     "boards/common/tca9537.cc"
+    "boards/common/sdmmc.cc"
 )
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
 
@@ -633,8 +634,8 @@ elseif(CONFIG_BOARD_TYPE_HU_087)
     set(BUILTIN_ICON_FONT font_awesome_14_1)
 elseif(CONFIG_BOARD_TYPE_FOREST_HEART_S3)
     set(BOARD_TYPE "forest-heart-s3") 
-    set(BUILTIN_TEXT_FONT font_puhui_basic_20_4) 
-    set(BUILTIN_ICON_FONT font_awesome_20_4)
+    set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)
+    set(BUILTIN_ICON_FONT font_awesome_16_4)
 endif()
 
 file(GLOB BOARD_SOURCES
@@ -808,14 +809,17 @@ idf_component_register(SRCS ${SOURCES}
                         esp_driver_i2s
                         esp_driver_jpeg
                         esp_driver_ppa
+                        esp_driver_sdmmc
                         esp_app_format
+                        esp_lvgl_port
+                        esp_lcd_gdew042t2
+                        fatfs
                         app_update
                         spi_flash
                         console
                         efuse
                         bt
-                        esp_lvgl_port
-                        esp_lcd_gdew042t2
+                        sdmmc
                     )
 
 # Use target_compile_definitions to define BOARD_TYPE, BOARD_NAME

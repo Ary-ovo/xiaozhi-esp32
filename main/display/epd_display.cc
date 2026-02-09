@@ -19,6 +19,53 @@ LV_FONT_DECLARE(BUILTIN_TEXT_FONT);
 LV_FONT_DECLARE(BUILTIN_ICON_FONT);
 LV_FONT_DECLARE(font_awesome_30_1);
 
+/**
+ * @brief 初始化内存（ESP32 上电已自动初始化堆，此处留空即可）
+ */
+void lv_mem_init(void)
+{
+    // Noting to do
+}
+
+/**
+ * @brief 反初始化内存
+ */
+void lv_mem_deinit(void)
+{
+    // Noting to do
+}
+
+/**
+ * @brief 核心内存分配函数
+ * @param size 需要分配的字节数
+ * @return 指针，如果失败返回 NULL
+ */
+void * lv_malloc_core(size_t size)
+{
+    // 从 PSRAM (SPIRAM) 分配RAM
+    return heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+}
+
+/**
+ * @brief 核心内存释放函数
+ * @param p 要释放的指针
+ */
+void lv_free_core(void * p)
+{
+    heap_caps_free(p);
+}
+
+/**
+ * @brief 核心内存重分配函数
+ * @param p 旧指针
+ * @param new_size 新大小
+ * @return 新指针
+ */
+void * lv_realloc_core(void * p, size_t new_size)
+{
+    return heap_caps_realloc(p, new_size, MALLOC_CAP_SPIRAM);
+}
+
 // ============================================================================
 // Helper: Set 1bpp pixel with bounds checking
 // ============================================================================
@@ -85,7 +132,7 @@ void EpdDisplay::FlushToHardware()
 {
     if (!is_dirty_) return;
 
-    ESP_LOGD(TAG, "Flushing to E-Ink...");
+    ESP_LOGD(TAG, "Flushing to E-Ink (M01)...");
 
     // Step A: Copy from PSRAM shadow buffer to Internal DMA buffer
     {
@@ -96,15 +143,24 @@ void EpdDisplay::FlushToHardware()
         is_dirty_ = false;
     }
 
-    // Step B: Send command to screen
+    // Step B: Set Refresh Mode (Switching Logic for M01)
     if (update_counter_ >= EPD_FULL_REFRESH_EVERY_X_FRAMES) {
+         // --- 全刷模式 (Full Refresh) ---
+         // false = 关闭局刷 = 使用全刷 (OTP LUTs, 慢但清晰)
          esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_FULL);
+         
          update_counter_ = 0;
     } else {
+         // --- 局刷模式 (Partial Refresh) ---
+         // true = 开启局刷 (Custom LUTs, 快但有残影)
          esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_PARTIAL);
+         
+         // 注意：建议在这里增加计数器，否则全刷逻辑可能永远触发不了
+         // update_counter_++; 
     }
 
-    // Send the Internal RAM buffer via DMA
+    // Step C: Send the Internal RAM buffer via DMA
+    // 标准 API，不需要改动
     esp_lcd_panel_draw_bitmap(panel_, 0, 0, width_, height_, snapshot_buf_);
 }
 
@@ -207,7 +263,7 @@ EpdDisplay::EpdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
     // that even if a stray pointer writes past the end, it hits our padding,
     // not the Wi-Fi stack.
     uint32_t safe_snapshot_size = 32 * 1024; 
-    snapshot_buf_ = heap_caps_calloc(1, safe_snapshot_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    snapshot_buf_ = heap_caps_calloc(1, safe_snapshot_size, MALLOC_CAP_SPIRAM);
 
     if (!lvgl_buf_ || !snapshot_buf_ || !draw_buf_) {
         ESP_LOGE(TAG, "Failed to allocate buffers!");
@@ -219,7 +275,7 @@ EpdDisplay::EpdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
     memset(lvgl_buf_, 0xFF, full_1bpp_size);
     // snapshot_buf_ is already zeroed by calloc, but we set it white (0xFF)
     memset(snapshot_buf_, 0xFF, safe_snapshot_size);
-
+    
     // 4. Configure Display
     // [CRITICAL]: We MUST tell LVGL we are RGB565 to match menuconfig.
     lv_display_set_color_format(display_, LV_COLOR_FORMAT_RGB565);
@@ -258,14 +314,16 @@ EpdDisplay::~EpdDisplay() {
     if (panel_io_) esp_lcd_panel_io_del(panel_io_);
 }
 
-// SetupUI (Keep as is)
+// SetupUI
 void EpdDisplay::SetupUI() {
     DisplayLockGuard lock(this);
     auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+    auto text_font = lvgl_theme->text_font()->font();
+    auto icon_font = lvgl_theme->icon_font()->font();
     auto large_icon_font = lvgl_theme->large_icon_font()->font();
 
     auto screen = lv_screen_active();
-    lv_obj_set_style_bg_color(screen, lv_color_white(), 0);
+    lv_obj_set_style_text_font(screen, text_font, 0);
     lv_obj_set_style_text_color(screen, lv_color_black(), 0);
 
     container_ = lv_obj_create(screen);
@@ -285,6 +343,7 @@ void EpdDisplay::SetupUI() {
     lv_obj_set_flex_align(top_bar_, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     network_label_ = lv_label_create(top_bar_);
+    lv_obj_set_style_text_font(network_label_, icon_font, 0);
     lv_label_set_text(network_label_, LV_SYMBOL_WIFI); 
     lv_obj_set_style_text_color(network_label_, lv_color_black(), 0);
 
@@ -297,6 +356,7 @@ void EpdDisplay::SetupUI() {
     lv_label_set_text(mute_label_, ""); 
     
     battery_label_ = lv_label_create(right_box);
+    lv_obj_set_style_text_font(battery_label_, icon_font, 0);
     lv_label_set_text(battery_label_, LV_SYMBOL_BATTERY_FULL);
 
     lv_obj_t* emotion_box = lv_obj_create(container_);
