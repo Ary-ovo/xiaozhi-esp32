@@ -9,28 +9,34 @@
 #define TCA9537_REG_POLARITY    0x02
 #define TCA9537_REG_CONFIG      0x03
 
-// 根据你的原理图定义的掩码
-// P1: Speaker, P2: EPD RST, P3: EPD CS
-#define MASK_SPEAKER    (1 << 1)
-#define MASK_EPD_RST    (1 << 2)
-#define MASK_EPD_CS     (1 << 3)
+// Pin Mask Code
+#define P0    0
+#define P1    1
+#define P2    2
+#define P3    3
+
+#define TCA9537_OUTPUT  0
+#define TCA9537_INPUT   1
 
 class Tca9537 : public I2cDevice {
+protected:
+    uint8_t output_val_ = 0;
+    uint8_t config_cache_ = 0;
 public:
     // 构造函数
     Tca9537(i2c_master_bus_handle_t i2c_bus, uint8_t addr);
 
     // 直接写输出寄存器 (0x01)
-    void SetOutputPort(uint8_t value);
+    void SetOutputPin(uint8_t pin_num, uint8_t level);
     
     // 直接写配置寄存器 (0x03)
-    void SetConfiguration(uint8_t dir_mask);
+    void SetPinConfiguration(uint8_t pin_num, uint8_t direction);
 
-    // 获取当前输出状态
-    uint8_t GetOutputPort();
+    // 获取Pin当前输出状态
+    int GetOutputPin(uint8_t pin_num);
 
-    // 辅助功能：单独设置某一位
-    void SetPinLevel(uint8_t pin_mask, bool level);
+    // 获取Pin当前配置状态
+    uint8_t GetPinDirection(uint8_t pin_num);
 };
 
-#endif // TCA9537_H
+#endif // TCA9537_

@@ -19,7 +19,6 @@ class Pmic : public Axp2101 {
 public:
     // Power Init
     Pmic(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Axp2101(i2c_bus, addr) {
-        
             WriteReg(0x22, 0b110); // PWRON > OFFLEVEL as POWEROFF Source enable
             WriteReg(0x27, 0x10);  // hold 4s to power off
             // Disable All DCs but DC1
@@ -27,16 +26,12 @@ public:
             // Disable All LDOs
             WriteReg(0x90, 0x00);
             WriteReg(0x91, 0x00);
-    
             // Set DC1 to 3.3V
             WriteReg(0x82, (3300 - 1500) / 100);
-    
             // Set ALDO1 to 3.3V
             WriteReg(0x92, (3300 - 500) / 100);
-    
             // Enable ALDO1 ALDO2 Disable Other LDO
             WriteReg(0x90, 0x03);
-            
             WriteReg(0x64, 0x02); // CV charger voltage setting to 4.1V
             WriteReg(0x61, 0x02); // set Main battery precharge current to 50mA
             WriteReg(0x62, 0x08); // set Main battery charger current to 400mA ( 0x08-200mA, 0x09-300mA, 0x0A-400mA )
@@ -181,7 +176,7 @@ public:
     // Init TCA9537
     IoExpander(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Tca9537(i2c_bus, addr) {
         ESP_LOGI(TAG, "Start IoExpander Sequence...");
-        // 1. 硬件复位引脚操作 (复位 TCA9537 芯片本身)
+        // 硬件复位引脚操作 (复位 TCA9537 芯片本身)
         gpio_set_direction(TCA9537_RST_PIN, GPIO_MODE_OUTPUT);
         gpio_set_level(TCA9537_RST_PIN, 0);
         vTaskDelay(pdMS_TO_TICKS(20));
@@ -189,29 +184,14 @@ public:
         vTaskDelay(pdMS_TO_TICKS(20)); // 等待芯片苏醒
         // 定义状态变量
         uint8_t output_state = 0;
-        // 全低 50ms (All Low)
-        // 先写 Output Reg = 0x00，确保一配置成输出就是低电平
-        WriteReg(0x01, 0x00); 
+        WriteReg(0x01, 0x00); // 先写 Output Reg = 0x00，确保一配置成输出就是低电平
         output_state = 0x00;
         // 配置 Config Reg: 0x00 (全为输出)
-        // 此时引脚真正被拉低
         WriteReg(0x03, 0x00);
-        output_state |= (1 << 0);
-        ESP_LOGI(TAG, "Step 1: All Low (Wait 50ms)");
-        vTaskDelay(pdMS_TO_TICKS(50));
-        // P2 RES 置高, 延迟 100ms
-        output_state |= (1 << IO_EXP_PIN_RST);
-        WriteReg(0x01, output_state);
-        ESP_LOGI(TAG, "Step 2: P2 RES High (Wait 100ms)");
-        vTaskDelay(pdMS_TO_TICKS(100));
-        // P3 CS 拉低, 延时 10ms   
-        ESP_LOGI(TAG, "Step 3: P3 CS Low (Wait 10ms)");
-        vTaskDelay(pdMS_TO_TICKS(10));
-        // P1 PA_EN 拉高
-        output_state |= (1 << IO_EXP_PIN_SPK); 
-        WriteReg(0x01, output_state);
-        ESP_LOGI(TAG, "Step 4: P1 PA_EN High (Sequence Done)");
-        ESP_LOGI(TAG, "Init Complete: PA_EN=H, RES=H, CS=L");
+        // Excute Epd Hardware Reset
+        EpdSetCs();
+        EpdReset();
+        SetOutputPin(P0, 1);
     }
     void EpdReset(void){
         uint8_t output_val = ReadReg(0x01);
@@ -220,7 +200,7 @@ public:
         vTaskDelay(pdMS_TO_TICKS(20));
         output_val |= (1 << IO_EXP_PIN_RST);
         WriteReg(0x01, output_val);
-        vTaskDelay(100);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
     void EpdSetCs(void)
     {
@@ -230,7 +210,7 @@ public:
         vTaskDelay(pdMS_TO_TICKS(20));
         output_val &= ~(1 << IO_EXP_PIN_CS);
         WriteReg(0x01, output_val);
-        vTaskDelay(100);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 };
 
@@ -287,21 +267,17 @@ private:
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
         ESP_LOGI(TAG, "Install Panel IO");
-        // CS 引脚设为 -1，因为已经由 TCA9537 锁定为低电平
         const esp_lcd_panel_io_spi_config_t io_config = {
             .cs_gpio_num = DISPLAY_SPI_CS_PIN,
             .dc_gpio_num = DISPLAY_DC_PIN,
             .spi_mode = 0,
-            .pclk_hz = 10 * 1000 * 1000, // EPD 推荐 10MHz
+            .pclk_hz = 10 * 1000 * 1000,
             .trans_queue_depth = 10,
             .lcd_cmd_bits = 8,
             .lcd_param_bits = 8,
         };
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(EPD_SPI_HOST, &io_config, &panel_io));
-
         ESP_LOGI(TAG, "Install GDEW042T2 Panel Driver");
-
-        // 1. 【修改】结构体名称改为 t2
         esp_lcd_panel_gdew042t2_config_t vendor_config = {
             .busy_gpio_num = DISPLAY_BUSY_PIN,
             .busy_active_level = 0, // Low = Busy
@@ -312,20 +288,10 @@ private:
             .bits_per_pixel = 16,
             .vendor_config = &vendor_config,
         };
-        // 2. 【建议恢复】硬件复位逻辑
-        // 因为你的 RST 和 CS 接在 IO 扩展芯片上，强烈建议保留这部分
-        ioexpander_->EpdSetCs(); 
-        ioexpander_->EpdReset(); 
-        // 3. 【修改】创建函数改为 t2
         ESP_ERROR_CHECK(esp_lcd_new_panel_gdew042t2(panel_io, &panel_config, &panel));
-        // 4. 软件复位 (如果 RST 引脚无效，这行其实没用，但留着无妨)
         esp_lcd_panel_reset(panel);
-        // 5. 初始化面板
         ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
-        // 6. 【修改】模式设置改为 t2 的 set_mode
-        // GDEW042T2_REFRESH_FULL = 0 (对应之前的 false 全刷)
         esp_lcd_gdew042t2_set_mode(panel, GDEW042T2_REFRESH_FULL);
-        // 7. 创建上层对象
         display_ = new EpdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
     // Init sdmmc
