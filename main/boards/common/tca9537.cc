@@ -21,7 +21,6 @@ void Tca9537::SetOutputPin(uint8_t pin_num, uint8_t level) {
 void Tca9537::SetPinConfiguration(uint8_t pin_num, uint8_t direction) {
     // 从芯片读取当前配置
     config_cache_ = ReadReg(TCA9537_REG_CONFIG);
-
     // 只修改对应的位
     if (direction == TCA9537_OUTPUT) { 
         // 设为输出：需要把对应位清零 (Bit = 0)

@@ -9,9 +9,9 @@
 #include <esp_log.h>
 #include "driver/gpio.h"
 #include "tca9537.h"
-
-// 引入墨水屏底层驱动头文件
+#include "mmw.h"
 #include "esp_lcd_gdew042t2.h"
+#include "led/rgbw_strip.h"
 
 #define TAG "ForestHeartS3"
 
@@ -183,15 +183,14 @@ public:
         gpio_set_level(TCA9537_RST_PIN, 1);
         vTaskDelay(pdMS_TO_TICKS(20)); // 等待芯片苏醒
         // 定义状态变量
-        uint8_t output_state = 0;
         WriteReg(0x01, 0x00); // 先写 Output Reg = 0x00，确保一配置成输出就是低电平
-        output_state = 0x00;
         // 配置 Config Reg: 0x00 (全为输出)
         WriteReg(0x03, 0x00);
         // Excute Epd Hardware Reset
         EpdSetCs();
         EpdReset();
         SetOutputPin(P0, 1);
+        SetOutputPin(IO_EXP_PIN_SPK, 1);
     }
     void EpdReset(void){
         uint8_t output_val = ReadReg(0x01);
@@ -214,6 +213,35 @@ public:
     }
 };
 
+class PresenceSensor : public MmwRadar {
+public:
+    // 构造函数即完成初始化和配置
+    PresenceSensor(uart_port_t uart_num, int tx_pin, int rx_pin) : MmwRadar({uart_num, tx_pin, rx_pin}) {
+        // 1. 设置回调函数（当检测到有人/无人变化时做什么）
+        this->SetStateChangedCallback([this](MmwState state) {
+            this->OnStateChanged(state);
+        });
+        // 2. 启动底层线程 (调用基类的 Start)
+        Start(); 
+        // 3. 发送配置指令 (例如开启自动上报)
+        EnableAutoReport();
+        ESP_LOGI("RADAR", "Radar Thread Started & Configured");
+    }
+private:
+    // 处理状态变化的逻辑
+    void OnStateChanged(MmwState state) {
+        if (state == MmwState::PRESENCE) {
+            ESP_LOGW("RADAR", "检测到有人！(User Presence Detected)");
+            // 在这里可以通知小智的主逻辑，例如：
+            // application_->WakeUp(); 
+            // audio_->PlaySound("hello.mp3");
+        } else {
+            ESP_LOGI("RADAR", "无人。(No Presence)");
+            // application_->GoToSleep();
+        }
+    }
+};
+
 class ForestHeartS3 : public WifiBoard {
 private:
     i2c_master_bus_handle_t i2c_bus_;
@@ -221,6 +249,8 @@ private:
     Display* display_ = nullptr;
     IoExpander* ioexpander_ = nullptr;
     Sdmmc* sdmmc_ = nullptr;
+    PresenceSensor* radar_ = nullptr;
+    RgbwStrip* rgbwstrip_ = nullptr;
     // 初始化 I2C 总线
     void InitializeI2c() {
         i2c_master_bus_config_t i2c_bus_cfg = {
@@ -324,6 +354,15 @@ private:
             printf("\r\n");
         }
     }
+    // Init PresenSensor Unit
+    void Init_PresenSensor(void)
+    {
+        radar_ = new PresenceSensor(UART_NUM_1, MMW_UART_RX, MMW_UART_TX);
+    }
+
+    void Init_RgbwStrip(void){
+        rgbwstrip_ = new RgbwStrip(SK6812RGBW_DATA_PIN, SK6812RGBW_NUM);
+    }
 
 public:
     ForestHeartS3(){
@@ -345,6 +384,10 @@ public:
         InitializeSpi();
         // 墨水屏初始化 & UI 启动
         InitializeGDEW042T2Display();
+        // // Init MicroWave Radar
+        // Init_PresenSensor();
+
+        Init_RgbwStrip();
     }
 
     virtual AudioCodec* GetAudioCodec() override {
@@ -353,7 +396,6 @@ public:
             GPIO_NUM_NC, AUDIO_CODEC_ES8311_ADDR);
         return &audio_codec;
     }
-
     virtual Display* GetDisplay() override {
         return display_;
     }

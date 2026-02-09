@@ -64,6 +64,7 @@
 
 // SK6812RGW Config
 #define SK6812RGBW_DATA_PIN     GPIO_NUM_45
+#define SK6812RGBW_NUM          4
 
 // TCA9537 Config
 #define TCA9537_ADDR            0x49

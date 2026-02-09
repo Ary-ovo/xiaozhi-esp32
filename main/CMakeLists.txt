@@ -12,6 +12,7 @@ set(SOURCES "audio/audio_codec.cc"
             "led/single_led.cc"
             "led/circular_strip.cc"
             "led/gpio_led.cc"
+            "led/rgbw_strip.cc"
             "display/display.cc"
             "display/lcd_display.cc"
             "display/oled_display.cc"
@@ -62,6 +63,7 @@ list(APPEND SOURCES
     "boards/common/system_reset.cc"
     "boards/common/tca9537.cc"
     "boards/common/sdmmc.cc"
+    "boards/common/mmw.cc"
 )
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
 
