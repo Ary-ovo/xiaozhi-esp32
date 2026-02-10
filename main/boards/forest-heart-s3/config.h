@@ -57,6 +57,8 @@
 #define SD_MMC_D2        GPIO_NUM_21
 #define SD_MMC_D3        GPIO_NUM_20
 
+#define ICONS_PATH       "S:/images/weather/"  // 假设 S: 是你的 SD 卡挂载点
+
 // MMW Config
 #define MMW_UART_TX   GPIO_NUM_41
 #define MMW_UART_RX   GPIO_NUM_46

@@ -13,10 +13,10 @@
 #include <esp_lvgl_port.h>
 #include <font_awesome.h>
 
-// #ifdef CONFIG_BOARD_TYPE_FOREST_HEART_S3
-//     #include "gui_guider.h"
-//     lv_ui guider_ui;
-// #endif // CONFIG_BOARD_TYPE_FOREST_HEART_S3
+#ifdef CONFIG_BOARD_TYPE_FOREST_HEART_S3
+    #include "gui_guider.h"
+    lv_ui guider_ui;
+#endif // CONFIG_BOARD_TYPE_FOREST_HEART_S3
 
 #define TAG "EpdDisplay"
 
@@ -167,58 +167,60 @@ void EpdDisplay::FlushToHardware()
     // Step C: Send the Internal RAM buffer via DMA
     // 标准 API，不需要改动
     esp_lcd_panel_draw_bitmap(panel_, 0, 0, width_, height_, snapshot_buf_);
+    ESP_LOGI(TAG, "FLUSH");
 }
 
 // // Helper Functions
-// void EpdDisplay::TriggerFullRefresh() {
-//     update_counter_ = EPD_FULL_REFRESH_EVERY_X_FRAMES + 1;
-//     is_dirty_ = true;
-// }
+void EpdDisplay::TriggerFullRefresh() {
+    update_counter_ = EPD_FULL_REFRESH_EVERY_X_FRAMES + 1;
+    is_dirty_ = true;
+}
 
-// void EpdDisplay::SetChatMessage(const char* role, const char* content) {
-//     DisplayLockGuard lock(this);
-//     if (!chat_message_label_) return;
-//     lv_label_set_text(chat_message_label_, content);
-//     update_counter_++;
-//     if (role && strcmp(role, "system") == 0) TriggerFullRefresh();
-// }
+void EpdDisplay::SetChatMessage(const char* role, const char* content) {
+    DisplayLockGuard lock(this);
+    if (!chat_message_label_) return;
+    // lv_label_set_text(chat_message_label_, content);
+    update_counter_++;
+    if (role && strcmp(role, "system") == 0) 
+        TriggerFullRefresh();
+}
 
-// void EpdDisplay::SetEmotion(const char* emotion) {
-//     DisplayLockGuard lock(this);
-//     if (!emotion_label_) return;
-//     const char* icon = font_awesome_get_utf8(emotion);
-//     lv_label_set_text(emotion_label_, icon ? icon : FONT_AWESOME_NEUTRAL);
-// }
+void EpdDisplay::SetEmotion(const char* emotion) {
+    DisplayLockGuard lock(this);
+    if (!emotion_label_) return;
+    const char* icon = font_awesome_get_utf8(emotion);
+    // lv_label_set_text(emotion_label_, icon ? icon : FONT_AWESOME_NEUTRAL);
+}
 
-// void EpdDisplay::SetTheme(Theme* theme) {
-//     DisplayLockGuard lock(this);
-//     auto lvgl_theme = static_cast<LvglTheme*>(theme);
-//     if (emotion_label_ && lvgl_theme) {
-//          lv_obj_set_style_text_font(emotion_label_, lvgl_theme->large_icon_font()->font(), 0);
-//     }
-// }
+void EpdDisplay::SetTheme(Theme* theme) {
+    DisplayLockGuard lock(this);
+    auto lvgl_theme = static_cast<LvglTheme*>(theme);
+    // if (emotion_label_ && lvgl_theme) {
+    //      lv_obj_set_style_text_font(emotion_label_, lvgl_theme->large_icon_font()->font(), 0);
+    // }
+}
 
-// void EpdDisplay::SetPowerSaveMode(bool enabled) {
-//     DisplayLockGuard lock(this);
+void EpdDisplay::SetPowerSaveMode(bool enabled) {
+    DisplayLockGuard lock(this);
     
-//     // 如果没有初始化 panel_handle_，直接返回
-//     if (!panel_) return;
+    // 如果没有初始化 panel_handle_，直接返回
+    if (!panel_) return;
 
-//     if (enabled) {
-//         ESP_LOGI(TAG, "EPD Enter Sleep");
-//         // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
-//         TriggerFullRefresh();
-//         FlushToHardware();
-//         esp_lcd_panel_disp_on_off(panel_, false);
+    if (enabled) {
+        ESP_LOGI(TAG, "EPD Enter Sleep");
+        // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
+        TriggerFullRefresh();
+        FlushToHardware();
+        esp_lcd_panel_disp_on_off(panel_, false);
         
-//     } else {
-//         ESP_LOGI(TAG, "EPD Exit Sleep");
-//         esp_lcd_panel_disp_on_off(panel_, true);
-//         // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
-//         TriggerFullRefresh();
-//         FlushToHardware();
-//     }
-// }
+    } else {
+        ESP_LOGI(TAG, "EPD Exit Sleep");
+        esp_lcd_panel_disp_on_off(panel_, true);
+        // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
+        TriggerFullRefresh();
+        FlushToHardware();
+    }
+}
 
 // LOCKING: Must be blocking to prevent race conditions
 bool EpdDisplay::Lock(int timeout_ms) {
@@ -312,11 +314,11 @@ EpdDisplay::EpdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
     // Set buffers. Note: We use Partial Mode.
     lv_display_set_buffers(display_, draw_buf_, NULL, draw_buf_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-    esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_PARTIAL);
     lvgl_port_unlock();
 
     SetupUI();
-
+    esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_FULL);
+    FlushToHardware();
     // 5. Start Refresh Timer
     const esp_timer_create_args_t timer_args = {
         .callback = [](void *arg) { static_cast<EpdDisplay*>(arg)->FlushToHardware(); },
@@ -344,11 +346,11 @@ EpdDisplay::~EpdDisplay() {
 // SetupUI
 void EpdDisplay::SetupUI() {
     DisplayLockGuard lock(this);
-    // setup_scr_screen(&guider_ui);
-    // auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-    // auto text_font = lvgl_theme->text_font()->font();
-    // auto icon_font = lvgl_theme->icon_font()->font();
-    // auto large_icon_font = lvgl_theme->large_icon_font()->font();
+
+    auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+    auto text_font = lvgl_theme->text_font()->font();
+    auto icon_font = lvgl_theme->icon_font()->font();
+    auto large_icon_font = lvgl_theme->large_icon_font()->font();
 
     // auto screen = lv_screen_active();
     // lv_obj_set_style_text_font(screen, text_font, 0);
@@ -411,4 +413,5 @@ void EpdDisplay::SetupUI() {
     // lv_obj_set_style_text_align(chat_message_label_, LV_TEXT_ALIGN_CENTER, 0);
     // lv_label_set_text(chat_message_label_, "Xiaozhi E-Paper Ready");
 
+    setup_ui(&guider_ui);
 }

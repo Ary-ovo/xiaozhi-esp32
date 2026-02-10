@@ -31,6 +31,10 @@
  *  STATIC VARIABLES
  **********************/
 
+// lv_font_t* lv_font_zaozigongfangxinranti_92 = NULL;
+// lv_font_t* lv_font_montserratMedium_16 = NULL;
+// lv_font_t* lv_font_MFYueHei_18 = NULL;
+
 /**
  * Create a demo application
  */
@@ -38,5 +42,9 @@
 void custom_init(lv_ui *ui)
 {
     /* Add your codes here */
+    // lv_font_zaozigongfangxinranti_92 = lv_binfont_create("S:/path/to/my_font.bin");
+    // lv_font_montserratMedium_16 = lv_binfont_create("S:/path/to/my_font.bin");
+    // lv_font_MFYueHei_18 = lv_binfont_create("S:/path/to/my_font.bin");
+
 }
 

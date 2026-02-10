@@ -706,7 +706,7 @@ dependencies:
       type: service
     version: 1.0.2
   espressif/led_strip:
-    component_hash: f0d1b7f93eb3ee57bcfd220656176b0b5616e1947f89ed44364555cf910c4840
+    component_hash: 28621486f77229aaf81c71f5e15d6fbf36c2949cf11094e07090593e659e7639
     dependencies:
     - name: idf
       require: private
@@ -714,7 +714,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 3.0.2
+    version: 3.0.3
   espressif/usb_host_uvc:
     component_hash: b0cb9a3a2eaa09dc6e5cc3e47e04d0a73e47c2d3dcfb3afce959224a1fe5fb5e
     dependencies:
@@ -851,7 +851,7 @@ dependencies:
       type: service
     version: 1.0.0
   txp666/otto-emoji-gif-component:
-    component_hash: f6fb3f74d46f696c4dc531b4d1c382d0733b0cbdc985b9d8704aff0de12fc43c
+    component_hash: 8da812ae44707af319a20e164e8b544199fe401436167c206e684594e0a38c5d
     dependencies:
     - name: lvgl/lvgl
       registry_url: https://components.espressif.com
@@ -860,7 +860,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.0.5
+    version: 1.1.1
   waveshare/esp_lcd_sh8601:
     component_hash: 1a2829e9db4e0515bad6ce83368f199dec60519fbba40251d6c8249f5d070ae1
     dependencies:

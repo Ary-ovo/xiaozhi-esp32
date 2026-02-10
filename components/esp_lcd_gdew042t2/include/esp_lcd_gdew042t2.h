@@ -18,9 +18,6 @@ extern "C" {
 
 /**
  * @brief GDEW042T2 (IL0398) Vendor Configuration
- *
- * This structure is used to pass EPD-specific hardware pin configurations
- * via the `vendor_config` field in `esp_lcd_panel_dev_config_t`.
  */
 typedef struct {
     int busy_gpio_num;       /*!< GPIO number for the BUSY pin */
@@ -47,33 +44,6 @@ typedef enum {
  * - ESP_ERR_NO_MEM: Memory allocation failed
  */
 esp_err_t esp_lcd_new_panel_gdew042t2(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel_dev_config_t *panel_dev_config, esp_lcd_panel_handle_t *ret_panel);
-
-/**
- * @brief Initialize the display for 4-level grayscale mode
- *
- * This function loads the specific LUTs required for grayscale display.
- *
- * @param panel LCD panel handle
- * @return
- * - ESP_OK: Success
- * - ESP_FAIL: Transmission failed
- */
-esp_err_t esp_lcd_gdew042t2_init_grayscale(esp_lcd_panel_handle_t panel);
-
-/**
- * @brief Draw a 4-level grayscale image
- *
- * The IL0398 controller generates gray levels by mixing "Old Data" and "New Data".
- *
- * @param panel LCD panel handle
- * @param layer_0x10 Pointer to the buffer for Register 0x10 (Old Data / Bitplane 0)
- * @param layer_0x13 Pointer to the buffer for Register 0x13 (New Data / Bitplane 1)
- * @param len Size of the buffer in bytes
- * @return
- * - ESP_OK: Success
- * - ESP_FAIL: Transmission failed
- */
-esp_err_t esp_lcd_gdew042t2_draw_grayscale(esp_lcd_panel_handle_t panel, const void *layer_0x10, const void *layer_0x13, size_t len);
 
 /**
  * @brief Set the refresh mode (loads the corresponding LUT)

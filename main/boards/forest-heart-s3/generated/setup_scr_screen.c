@@ -10,8 +10,6 @@
 #include "lvgl.h"
 #include <stdio.h>
 #include "gui_guider.h"
-#include "events_init.h"
-#include "widgets_init.h"
 #include "custom.h"
 
 
@@ -298,7 +296,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_9, 375, 9);
     lv_obj_set_size(ui->screen_img_9, 16, 16);
     lv_obj_add_flag(ui->screen_img_9, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_9, &_qweather_RGB565A8_16x16);
+    lv_image_set_src(ui->screen_img_9, &_350_RGB565A8_16x16);
     lv_image_set_pivot(ui->screen_img_9, 50,50);
     lv_image_set_rotation(ui->screen_img_9, 0);
 

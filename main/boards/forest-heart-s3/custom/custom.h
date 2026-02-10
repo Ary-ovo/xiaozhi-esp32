@@ -17,6 +17,11 @@ extern "C" {
 
 void custom_init(lv_ui *ui);
 
+
+// extern lv_font_t* lv_font_zaozigongfangxinranti_92;
+// extern lv_font_t* lv_font_montserratMedium_16;
+// extern lv_font_t* lv_font_MFYueHei_18;
+
 #ifdef __cplusplus
 }
 #endif
