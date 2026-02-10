@@ -1,0 +1,1 @@
+GEN_CSRCS += lv_font_zaozigongfangxinranti_92.c lv_font_montserratMedium_16.c lv_font_MFYueHei_18.c

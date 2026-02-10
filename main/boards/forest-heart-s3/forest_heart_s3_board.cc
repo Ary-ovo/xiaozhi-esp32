@@ -9,6 +9,7 @@
 #include <esp_log.h>
 #include "driver/gpio.h"
 #include "tca9537.h"
+#include "power_save_timer.h"
 #include "mmw.h"
 #include "esp_lcd_gdew042t2.h"
 #include "led/rgbw_strip.h"
@@ -31,7 +32,8 @@ public:
             // Set ALDO1 to 3.3V
             WriteReg(0x92, (3300 - 500) / 100);
             // Enable ALDO1 ALDO2 Disable Other LDO
-            WriteReg(0x90, 0x03);
+            WriteReg(0x90, 0x01);
+
             WriteReg(0x64, 0x02); // CV charger voltage setting to 4.1V
             WriteReg(0x61, 0x02); // set Main battery precharge current to 50mA
             WriteReg(0x62, 0x08); // set Main battery charger current to 400mA ( 0x08-200mA, 0x09-300mA, 0x0A-400mA )
@@ -183,32 +185,32 @@ public:
         gpio_set_level(TCA9537_RST_PIN, 1);
         vTaskDelay(pdMS_TO_TICKS(20)); // 等待芯片苏醒
         // 定义状态变量
-        WriteReg(0x01, 0x00); // 先写 Output Reg = 0x00，确保一配置成输出就是低电平
+        WriteReg(TCA9537_REG_OUTPUT, 0x00); // 先写 Output Reg = 0x00，确保一配置成输出就是低电平
         // 配置 Config Reg: 0x00 (全为输出)
-        WriteReg(0x03, 0x00);
+        WriteReg(TCA9537_REG_CONFIG, 0x00);
         // Excute Epd Hardware Reset
         EpdSetCs();
         EpdReset();
         SetOutputPin(P0, 1);
-        SetOutputPin(IO_EXP_PIN_SPK, 1);
+        SetOutputPin(IO_EXP_PIN_SPK, 0);
     }
     void EpdReset(void){
-        uint8_t output_val = ReadReg(0x01);
+        uint8_t output_val = ReadReg(TCA9537_REG_OUTPUT);
         output_val &= ~(1 << IO_EXP_PIN_RST);
-        WriteReg(0x01, output_val);
+        WriteReg(TCA9537_REG_OUTPUT, output_val);
         vTaskDelay(pdMS_TO_TICKS(20));
         output_val |= (1 << IO_EXP_PIN_RST);
-        WriteReg(0x01, output_val);
+        WriteReg(TCA9537_REG_OUTPUT, output_val);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     void EpdSetCs(void)
     {
-        uint8_t output_val = ReadReg(0x01);
+        uint8_t output_val = ReadReg(TCA9537_REG_OUTPUT);
         output_val |= (1 << IO_EXP_PIN_CS);
-        WriteReg(0x01, output_val);
+        WriteReg(TCA9537_REG_OUTPUT, output_val);
         vTaskDelay(pdMS_TO_TICKS(20));
         output_val &= ~(1 << IO_EXP_PIN_CS);
-        WriteReg(0x01, output_val);
+        WriteReg(TCA9537_REG_OUTPUT, output_val);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 };
@@ -242,6 +244,29 @@ private:
     }
 };
 
+class CustomAudioCodec : public Es8311AudioCodec {
+private:
+    IoExpander* ioexpander_;
+
+public:
+    CustomAudioCodec(i2c_master_bus_handle_t i2c_bus, IoExpander* ioexpander) 
+        : Es8311AudioCodec(i2c_bus, I2C_PORT, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
+            AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
+            GPIO_NUM_NC, AUDIO_CODEC_ES8311_ADDR), 
+          ioexpander_(ioexpander) {
+    }
+
+    virtual void EnableOutput(bool enable) override {
+        Es8311AudioCodec::EnableOutput(enable);
+        if (enable) {
+            ioexpander_->SetOutputPin(IO_EXP_PIN_SPK, 1);
+        } else {
+            ioexpander_->SetOutputPin(IO_EXP_PIN_SPK, 0);
+        }
+    }
+};
+
+
 class ForestHeartS3 : public WifiBoard {
 private:
     i2c_master_bus_handle_t i2c_bus_;
@@ -251,6 +276,8 @@ private:
     Sdmmc* sdmmc_ = nullptr;
     PresenceSensor* radar_ = nullptr;
     RgbwStrip* rgbwstrip_ = nullptr;
+    PowerSaveTimer* power_save_timer_;
+
     // 初始化 I2C 总线
     void InitializeI2c() {
         i2c_master_bus_config_t i2c_bus_cfg = {
@@ -370,8 +397,8 @@ public:
         size_t spiram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
         ESP_LOGI(TAG, " Internal RAM Total: %d bytes (%.2f KB)", internal_total, internal_total / 1024.0);
         ESP_LOGI(TAG, " External RAM Total: %d bytes (%.2f MB)", spiram_total, spiram_total / 1024.0 / 1024.0);
-        // 初始化 I2C 总线 (用于 TCA9537)
-        InitializeI2c();
+      
+        InitializeI2c(); // 初始化 I2C 总线 (用于 TCA9537)
         // Init SDcard
         Sdmmc_Init();
         // Set up All Device Power
@@ -389,15 +416,26 @@ public:
 
         Init_RgbwStrip();
     }
-
+    
     virtual AudioCodec* GetAudioCodec() override {
-        static Es8311AudioCodec audio_codec(i2c_bus_, I2C_PORT, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
-            GPIO_NUM_NC, AUDIO_CODEC_ES8311_ADDR);
+        static CustomAudioCodec audio_codec(
+            i2c_bus_, 
+            ioexpander_);
         return &audio_codec;
     }
     virtual Display* GetDisplay() override {
         return display_;
+    }
+    virtual bool GetBatteryLevel(int &level, bool& charging, bool& discharging) override {
+        static bool last_discharging = false;
+        charging = pmic_->IsCharging();
+        discharging = pmic_->IsDischarging();
+        if (discharging != last_discharging) {
+            power_save_timer_->SetEnabled(discharging);
+            last_discharging = discharging;
+        }
+        level = pmic_->GetBatteryLevel();
+        return true;
     }
 };
 

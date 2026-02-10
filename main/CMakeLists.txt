@@ -635,7 +635,16 @@ elseif(CONFIG_BOARD_TYPE_HU_087)
     set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)
     set(BUILTIN_ICON_FONT font_awesome_14_1)
 elseif(CONFIG_BOARD_TYPE_FOREST_HEART_S3)
-    set(BOARD_TYPE "forest-heart-s3") 
+    set(BOARD_TYPE "forest-heart-s3")
+    list(APPEND INCLUDE_DIRS 
+        "boards/${BOARD_TYPE}/custom"
+        "boards/${BOARD_TYPE}/generated"
+    )
+    file(GLOB SUB_DIR_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/custom/*.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/generated/*.c"
+    )
+    list(APPEND SOURCES ${SUB_DIR_SOURCES})
     set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)
     set(BUILTIN_ICON_FONT font_awesome_16_4)
 endif()

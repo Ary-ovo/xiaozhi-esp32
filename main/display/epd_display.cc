@@ -13,6 +13,11 @@
 #include <esp_lvgl_port.h>
 #include <font_awesome.h>
 
+// #ifdef CONFIG_BOARD_TYPE_FOREST_HEART_S3
+//     #include "gui_guider.h"
+//     lv_ui guider_ui;
+// #endif // CONFIG_BOARD_TYPE_FOREST_HEART_S3
+
 #define TAG "EpdDisplay"
 
 LV_FONT_DECLARE(BUILTIN_TEXT_FONT);
@@ -164,34 +169,56 @@ void EpdDisplay::FlushToHardware()
     esp_lcd_panel_draw_bitmap(panel_, 0, 0, width_, height_, snapshot_buf_);
 }
 
-// Helper Functions
-void EpdDisplay::TriggerFullRefresh() {
-    update_counter_ = EPD_FULL_REFRESH_EVERY_X_FRAMES + 1;
-    is_dirty_ = true;
-}
+// // Helper Functions
+// void EpdDisplay::TriggerFullRefresh() {
+//     update_counter_ = EPD_FULL_REFRESH_EVERY_X_FRAMES + 1;
+//     is_dirty_ = true;
+// }
 
-void EpdDisplay::SetChatMessage(const char* role, const char* content) {
-    DisplayLockGuard lock(this);
-    if (!chat_message_label_) return;
-    lv_label_set_text(chat_message_label_, content);
-    update_counter_++;
-    if (role && strcmp(role, "system") == 0) TriggerFullRefresh();
-}
+// void EpdDisplay::SetChatMessage(const char* role, const char* content) {
+//     DisplayLockGuard lock(this);
+//     if (!chat_message_label_) return;
+//     lv_label_set_text(chat_message_label_, content);
+//     update_counter_++;
+//     if (role && strcmp(role, "system") == 0) TriggerFullRefresh();
+// }
 
-void EpdDisplay::SetEmotion(const char* emotion) {
-    DisplayLockGuard lock(this);
-    if (!emotion_label_) return;
-    const char* icon = font_awesome_get_utf8(emotion);
-    lv_label_set_text(emotion_label_, icon ? icon : FONT_AWESOME_NEUTRAL);
-}
+// void EpdDisplay::SetEmotion(const char* emotion) {
+//     DisplayLockGuard lock(this);
+//     if (!emotion_label_) return;
+//     const char* icon = font_awesome_get_utf8(emotion);
+//     lv_label_set_text(emotion_label_, icon ? icon : FONT_AWESOME_NEUTRAL);
+// }
 
-void EpdDisplay::SetTheme(Theme* theme) {
-    DisplayLockGuard lock(this);
-    auto lvgl_theme = static_cast<LvglTheme*>(theme);
-    if (emotion_label_ && lvgl_theme) {
-         lv_obj_set_style_text_font(emotion_label_, lvgl_theme->large_icon_font()->font(), 0);
-    }
-}
+// void EpdDisplay::SetTheme(Theme* theme) {
+//     DisplayLockGuard lock(this);
+//     auto lvgl_theme = static_cast<LvglTheme*>(theme);
+//     if (emotion_label_ && lvgl_theme) {
+//          lv_obj_set_style_text_font(emotion_label_, lvgl_theme->large_icon_font()->font(), 0);
+//     }
+// }
+
+// void EpdDisplay::SetPowerSaveMode(bool enabled) {
+//     DisplayLockGuard lock(this);
+    
+//     // 如果没有初始化 panel_handle_，直接返回
+//     if (!panel_) return;
+
+//     if (enabled) {
+//         ESP_LOGI(TAG, "EPD Enter Sleep");
+//         // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
+//         TriggerFullRefresh();
+//         FlushToHardware();
+//         esp_lcd_panel_disp_on_off(panel_, false);
+        
+//     } else {
+//         ESP_LOGI(TAG, "EPD Exit Sleep");
+//         esp_lcd_panel_disp_on_off(panel_, true);
+//         // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
+//         TriggerFullRefresh();
+//         FlushToHardware();
+//     }
+// }
 
 // LOCKING: Must be blocking to prevent race conditions
 bool EpdDisplay::Lock(int timeout_ms) {
@@ -317,69 +344,71 @@ EpdDisplay::~EpdDisplay() {
 // SetupUI
 void EpdDisplay::SetupUI() {
     DisplayLockGuard lock(this);
-    auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-    auto text_font = lvgl_theme->text_font()->font();
-    auto icon_font = lvgl_theme->icon_font()->font();
-    auto large_icon_font = lvgl_theme->large_icon_font()->font();
+    // setup_scr_screen(&guider_ui);
+    // auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+    // auto text_font = lvgl_theme->text_font()->font();
+    // auto icon_font = lvgl_theme->icon_font()->font();
+    // auto large_icon_font = lvgl_theme->large_icon_font()->font();
 
-    auto screen = lv_screen_active();
-    lv_obj_set_style_text_font(screen, text_font, 0);
-    lv_obj_set_style_text_color(screen, lv_color_black(), 0);
+    // auto screen = lv_screen_active();
+    // lv_obj_set_style_text_font(screen, text_font, 0);
+    // lv_obj_set_style_text_color(screen, lv_color_black(), 0);
 
-    container_ = lv_obj_create(screen);
-    lv_obj_set_size(container_, width_, height_);
-    lv_obj_set_style_pad_all(container_, 0, 0);
-    lv_obj_set_style_border_width(container_, 0, 0);
-    lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_bg_opa(container_, LV_OPA_TRANSP, 0);
+    // container_ = lv_obj_create(screen);
+    // lv_obj_set_size(container_, width_, height_);
+    // lv_obj_set_style_pad_all(container_, 0, 0);
+    // lv_obj_set_style_border_width(container_, 0, 0);
+    // lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_COLUMN);
+    // lv_obj_set_style_bg_opa(container_, LV_OPA_TRANSP, 0);
 
-    top_bar_ = lv_obj_create(container_);
-    lv_obj_set_size(top_bar_, width_, 30);
-    lv_obj_set_style_pad_hor(top_bar_, 10, 0);
-    lv_obj_set_style_border_side(top_bar_, LV_BORDER_SIDE_BOTTOM, 0);
-    lv_obj_set_style_border_width(top_bar_, 2, 0);
-    lv_obj_set_style_border_color(top_bar_, lv_color_black(), 0);
-    lv_obj_set_flex_flow(top_bar_, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(top_bar_, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    // top_bar_ = lv_obj_create(container_);
+    // lv_obj_set_size(top_bar_, width_, 30);
+    // lv_obj_set_style_pad_hor(top_bar_, 10, 0);
+    // lv_obj_set_style_border_side(top_bar_, LV_BORDER_SIDE_BOTTOM, 0);
+    // lv_obj_set_style_border_width(top_bar_, 2, 0);
+    // lv_obj_set_style_border_color(top_bar_, lv_color_black(), 0);
+    // lv_obj_set_flex_flow(top_bar_, LV_FLEX_FLOW_ROW);
+    // lv_obj_set_flex_align(top_bar_, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    network_label_ = lv_label_create(top_bar_);
-    lv_obj_set_style_text_font(network_label_, icon_font, 0);
-    lv_label_set_text(network_label_, LV_SYMBOL_WIFI); 
-    lv_obj_set_style_text_color(network_label_, lv_color_black(), 0);
+    // network_label_ = lv_label_create(top_bar_);
+    // lv_obj_set_style_text_font(network_label_, icon_font, 0);
+    // lv_label_set_text(network_label_, LV_SYMBOL_WIFI); 
+    // lv_obj_set_style_text_color(network_label_, lv_color_black(), 0);
 
-    lv_obj_t* right_box = lv_obj_create(top_bar_);
-    lv_obj_set_size(right_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_flex_flow(right_box, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_gap(right_box, 10, 0);
+    // lv_obj_t* right_box = lv_obj_create(top_bar_);
+    // lv_obj_set_size(right_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    // lv_obj_set_flex_flow(right_box, LV_FLEX_FLOW_ROW);
+    // lv_obj_set_style_pad_gap(right_box, 10, 0);
 
-    mute_label_ = lv_label_create(right_box);
-    lv_label_set_text(mute_label_, ""); 
+    // mute_label_ = lv_label_create(right_box);
+    // lv_label_set_text(mute_label_, ""); 
     
-    battery_label_ = lv_label_create(right_box);
-    lv_obj_set_style_text_font(battery_label_, icon_font, 0);
-    lv_label_set_text(battery_label_, LV_SYMBOL_BATTERY_FULL);
+    // battery_label_ = lv_label_create(right_box);
+    // lv_obj_set_style_text_font(battery_label_, icon_font, 0);
+    // lv_label_set_text(battery_label_, LV_SYMBOL_BATTERY_FULL);
 
-    lv_obj_t* emotion_box = lv_obj_create(container_);
-    lv_obj_set_width(emotion_box, width_);
-    lv_obj_set_flex_grow(emotion_box, 1);
-    lv_obj_set_flex_flow(emotion_box, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(emotion_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    // lv_obj_t* emotion_box = lv_obj_create(container_);
+    // lv_obj_set_width(emotion_box, width_);
+    // lv_obj_set_flex_grow(emotion_box, 1);
+    // lv_obj_set_flex_flow(emotion_box, LV_FLEX_FLOW_COLUMN);
+    // lv_obj_set_flex_align(emotion_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    emotion_label_ = lv_label_create(emotion_box);
-    lv_obj_set_style_text_font(emotion_label_, large_icon_font, 0);
-    lv_label_set_text(emotion_label_, FONT_AWESOME_MICROCHIP_AI);
-    lv_obj_set_style_text_color(emotion_label_, lv_color_black(), 0);
+    // emotion_label_ = lv_label_create(emotion_box);
+    // lv_obj_set_style_text_font(emotion_label_, large_icon_font, 0);
+    // lv_label_set_text(emotion_label_, FONT_AWESOME_MICROCHIP_AI);
+    // lv_obj_set_style_text_color(emotion_label_, lv_color_black(), 0);
 
-    lv_obj_t* msg_box = lv_obj_create(container_);
-    lv_obj_set_size(msg_box, width_, 80);
-    lv_obj_set_style_pad_all(msg_box, 10, 0);
-    lv_obj_set_style_border_side(msg_box, LV_BORDER_SIDE_TOP, 0);
-    lv_obj_set_style_border_width(msg_box, 2, 0);
-    lv_obj_set_style_border_color(msg_box, lv_color_black(), 0);
+    // lv_obj_t* msg_box = lv_obj_create(container_);
+    // lv_obj_set_size(msg_box, width_, 80);
+    // lv_obj_set_style_pad_all(msg_box, 10, 0);
+    // lv_obj_set_style_border_side(msg_box, LV_BORDER_SIDE_TOP, 0);
+    // lv_obj_set_style_border_width(msg_box, 2, 0);
+    // lv_obj_set_style_border_color(msg_box, lv_color_black(), 0);
 
-    chat_message_label_ = lv_label_create(msg_box);
-    lv_obj_set_width(chat_message_label_, width_ - 20);
-    lv_label_set_long_mode(chat_message_label_, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(chat_message_label_, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(chat_message_label_, "Xiaozhi E-Paper Ready");
+    // chat_message_label_ = lv_label_create(msg_box);
+    // lv_obj_set_width(chat_message_label_, width_ - 20);
+    // lv_label_set_long_mode(chat_message_label_, LV_LABEL_LONG_WRAP);
+    // lv_obj_set_style_text_align(chat_message_label_, LV_TEXT_ALIGN_CENTER, 0);
+    // lv_label_set_text(chat_message_label_, "Xiaozhi E-Paper Ready");
+
 }
