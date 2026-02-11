@@ -82,10 +82,10 @@ public:
     
     ~EpdDisplay();
 
-    virtual void SetChatMessage(const char* role, const char* content) override;
-    virtual void SetEmotion(const char* emotion) override;
-    virtual void SetTheme(Theme* theme) override;
-    virtual void SetPowerSaveMode(bool enabled);
+    // virtual void SetChatMessage(const char* role, const char* content) override;
+    // virtual void SetEmotion(const char* emotion) override;
+    // virtual void SetTheme(Theme* theme) override;
+    // virtual void SetPowerSaveMode(bool enabled);
 };
 
 #endif // EPD_DISPLAY_H

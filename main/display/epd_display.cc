@@ -15,6 +15,7 @@
 
 #ifdef CONFIG_BOARD_TYPE_FOREST_HEART_S3
     #include "gui_guider.h"
+    #include "custom.h"
     lv_ui guider_ui;
 #endif // CONFIG_BOARD_TYPE_FOREST_HEART_S3
 
@@ -69,6 +70,14 @@ void lv_free_core(void * p)
 void * lv_realloc_core(void * p, size_t new_size)
 {
     return heap_caps_realloc(p, new_size, MALLOC_CAP_SPIRAM);
+}
+
+void lv_mem_monitor_core(lv_mem_monitor_t * mon_p) {
+    if(mon_p) lv_memzero(mon_p, sizeof(lv_mem_monitor_t));
+}
+
+lv_result_t lv_mem_test_core(void) {
+    return LV_RESULT_OK;
 }
 
 // ============================================================================
@@ -158,10 +167,10 @@ void EpdDisplay::FlushToHardware()
     } else {
          // --- 局刷模式 (Partial Refresh) ---
          // true = 开启局刷 (Custom LUTs, 快但有残影)
-         esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_PARTIAL);
+         esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_FULL);
          
          // 注意：建议在这里增加计数器，否则全刷逻辑可能永远触发不了
-         // update_counter_++; 
+         update_counter_++; 
     }
 
     // Step C: Send the Internal RAM buffer via DMA
@@ -176,51 +185,51 @@ void EpdDisplay::TriggerFullRefresh() {
     is_dirty_ = true;
 }
 
-void EpdDisplay::SetChatMessage(const char* role, const char* content) {
-    DisplayLockGuard lock(this);
-    if (!chat_message_label_) return;
-    // lv_label_set_text(chat_message_label_, content);
-    update_counter_++;
-    if (role && strcmp(role, "system") == 0) 
-        TriggerFullRefresh();
-}
+// void EpdDisplay::SetChatMessage(const char* role, const char* content) {
+//     DisplayLockGuard lock(this);
+//     if (!chat_message_label_) return;
+//     // lv_label_set_text(chat_message_label_, content);
+//     update_counter_++;
+//     if (role && strcmp(role, "system") == 0) 
+//         TriggerFullRefresh();
+// }
 
-void EpdDisplay::SetEmotion(const char* emotion) {
-    DisplayLockGuard lock(this);
-    if (!emotion_label_) return;
-    const char* icon = font_awesome_get_utf8(emotion);
-    // lv_label_set_text(emotion_label_, icon ? icon : FONT_AWESOME_NEUTRAL);
-}
+// void EpdDisplay::SetEmotion(const char* emotion) {
+//     DisplayLockGuard lock(this);
+//     if (!emotion_label_) return;
+//     const char* icon = font_awesome_get_utf8(emotion);
+//     // lv_label_set_text(emotion_label_, icon ? icon : FONT_AWESOME_NEUTRAL);
+// }
 
-void EpdDisplay::SetTheme(Theme* theme) {
-    DisplayLockGuard lock(this);
-    auto lvgl_theme = static_cast<LvglTheme*>(theme);
-    // if (emotion_label_ && lvgl_theme) {
-    //      lv_obj_set_style_text_font(emotion_label_, lvgl_theme->large_icon_font()->font(), 0);
-    // }
-}
+// void EpdDisplay::SetTheme(Theme* theme) {
+//     DisplayLockGuard lock(this);
+//     auto lvgl_theme = static_cast<LvglTheme*>(theme);
+//     // if (emotion_label_ && lvgl_theme) {
+//     //      lv_obj_set_style_text_font(emotion_label_, lvgl_theme->large_icon_font()->font(), 0);
+//     // }
+// }
 
-void EpdDisplay::SetPowerSaveMode(bool enabled) {
-    DisplayLockGuard lock(this);
+// void EpdDisplay::SetPowerSaveMode(bool enabled) {
+//     DisplayLockGuard lock(this);
     
-    // 如果没有初始化 panel_handle_，直接返回
-    if (!panel_) return;
+//     // 如果没有初始化 panel_handle_，直接返回
+//     if (!panel_) return;
 
-    if (enabled) {
-        ESP_LOGI(TAG, "EPD Enter Sleep");
-        // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
-        TriggerFullRefresh();
-        FlushToHardware();
-        esp_lcd_panel_disp_on_off(panel_, false);
+//     if (enabled) {
+//         ESP_LOGI(TAG, "EPD Enter Sleep");
+//         // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
+//         TriggerFullRefresh();
+//         FlushToHardware();
+//         esp_lcd_panel_disp_on_off(panel_, false);
         
-    } else {
-        ESP_LOGI(TAG, "EPD Exit Sleep");
-        esp_lcd_panel_disp_on_off(panel_, true);
-        // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
-        TriggerFullRefresh();
-        FlushToHardware();
-    }
-}
+//     } else {
+//         ESP_LOGI(TAG, "EPD Exit Sleep");
+//         esp_lcd_panel_disp_on_off(panel_, true);
+//         // 墨水屏唤醒后通常需要一次全刷来清除残影或重置电压状态
+//         TriggerFullRefresh();
+//         FlushToHardware();
+//     }
+// }
 
 // LOCKING: Must be blocking to prevent race conditions
 bool EpdDisplay::Lock(int timeout_ms) {
@@ -347,10 +356,10 @@ EpdDisplay::~EpdDisplay() {
 void EpdDisplay::SetupUI() {
     DisplayLockGuard lock(this);
 
-    auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-    auto text_font = lvgl_theme->text_font()->font();
-    auto icon_font = lvgl_theme->icon_font()->font();
-    auto large_icon_font = lvgl_theme->large_icon_font()->font();
+    // auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
+    // auto text_font = lvgl_theme->text_font()->font();
+    // auto icon_font = lvgl_theme->icon_font()->font();
+    // auto large_icon_font = lvgl_theme->large_icon_font()->font();
 
     // auto screen = lv_screen_active();
     // lv_obj_set_style_text_font(screen, text_font, 0);
@@ -413,5 +422,12 @@ void EpdDisplay::SetupUI() {
     // lv_obj_set_style_text_align(chat_message_label_, LV_TEXT_ALIGN_CENTER, 0);
     // lv_label_set_text(chat_message_label_, "Xiaozhi E-Paper Ready");
 
-    setup_ui(&guider_ui);
+    custom_init(&guider_ui);
+    
+    // [关键] 检查一下所有字体是否都加载了，如果没加载，不要进 UI，否则也是崩
+    if (lv_font_zaozigongfangxinranti_92 && lv_font_MFYueHei_18) {
+        setup_ui(&guider_ui);
+    } else {
+        ESP_LOGE("App", "字体加载不全，跳过 UI 初始化以防止崩溃");
+    }
 }

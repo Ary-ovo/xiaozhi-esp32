@@ -44,102 +44,7 @@ public:
 // Init SDmmc and LVGL file systerm
 class Sdmmc : public SdCard {
 private:
-    static void fs_make_path(char * buffer, const char * path) {
-        if(path[0] == '/') {
-            snprintf(buffer, 256, "%s%s", MOUNT_POINT, path);
-        } else {
-            snprintf(buffer, 256, "%s/%s", MOUNT_POINT, path);
-        }
-    }
-    static void * fs_open(lv_fs_drv_t * drv, const char * path, lv_fs_mode_t mode) {
-        const char * flags = "";
-        if(mode == LV_FS_MODE_WR) flags = "w";
-        else if(mode == LV_FS_MODE_RD) flags = "r";
-        else if(mode == (LV_FS_MODE_WR | LV_FS_MODE_RD)) flags = "r+";
 
-        char real_path[256];
-        fs_make_path(real_path, path);
-
-        FILE * f = fopen(real_path, flags);
-        if(f == NULL) return NULL;
-
-        return (void *)f; // 返回文件指针作为句柄
-    }
-    static lv_fs_res_t fs_close(lv_fs_drv_t * drv, void * file_p) {
-        FILE * f = (FILE *)file_p;
-        fclose(f);
-        return LV_FS_RES_OK;
-    }
-    /* ==========================================================
-    * Callback: 读取文件
-    * ========================================================== */
-    static lv_fs_res_t fs_read(lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br) {
-        FILE * f = (FILE *)file_p;
-        *br = fread(buf, 1, btr, f);
-        return LV_FS_RES_OK;
-    }
-    /* ==========================================================
-    * Callback: 写入文件
-    * ========================================================== */
-    static lv_fs_res_t fs_write(lv_fs_drv_t * drv, void * file_p, const void * buf, uint32_t btw, uint32_t * bw) {
-        FILE * f = (FILE *)file_p;
-        *bw = fwrite(buf, 1, btw, f);
-        return LV_FS_RES_OK;
-    }
-    /* ==========================================================
-    * Callback: 定位 (Seek)
-    * ========================================================== */
-    static lv_fs_res_t fs_seek(lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence) {
-        FILE * f = (FILE *)file_p;
-        int mode;
-        switch(whence) {
-            case LV_FS_SEEK_SET: mode = SEEK_SET; break;
-            case LV_FS_SEEK_CUR: mode = SEEK_CUR; break;
-            case LV_FS_SEEK_END: mode = SEEK_END; break;
-            default: mode = SEEK_SET;
-        }
-        fseek(f, pos, mode);
-        return LV_FS_RES_OK;
-    }
-    /* ==========================================================
-    * Callback: 获取位置 (Tell)
-    * ========================================================== */
-    static lv_fs_res_t fs_tell(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p) {
-        FILE * f = (FILE *)file_p;
-        *pos_p = ftell(f);
-        return LV_FS_RES_OK;
-    }
-    static void * fs_dir_open(lv_fs_drv_t * drv, const char * path) {
-        char real_path[256];
-        if (path == NULL || strlen(path) == 0 || strcmp(path, "/") == 0) {
-            snprintf(real_path, sizeof(real_path), "%s", MOUNT_POINT);
-        } else {
-            snprintf(real_path, sizeof(real_path), "%s/%s", MOUNT_POINT, path);
-        }
-
-        DIR * d = opendir(real_path);
-        if (d == NULL) return NULL;
-        return (void *)d;
-    }
-
-    static lv_fs_res_t fs_dir_read(lv_fs_drv_t * drv, void * dir_p, char * fn, uint32_t fn_len) {
-        DIR * d = (DIR *)dir_p;
-        struct dirent * entry;
-
-        entry = readdir(d);
-        if (entry) {
-            strncpy(fn, entry->d_name, fn_len);
-            if (fn_len > 0) fn[fn_len - 1] = '\0';
-        } else {
-            if (fn_len > 0) fn[0] = '\0';
-        }
-        return LV_FS_RES_OK;
-    }
-
-    static lv_fs_res_t fs_dir_close(lv_fs_drv_t * drv, void * dir_p) {
-        closedir((DIR *)dir_p);
-        return LV_FS_RES_OK;
-    }
 public:
     // Init SDmmc 
     Sdmmc(const char* mount_point, 
@@ -151,25 +56,6 @@ public:
         gpio_num_t d3 = GPIO_NUM_NC,
         bool format_if_mount_failed = false) : 
     SdCard(mount_point, clk, cmd, d0, d1, d2, d3, format_if_mount_failed){
-        ESP_LOGI(TAG, "Mounting LVGL File Systerm....");
-        lv_port_fs_init();
-    }
-    void lv_port_fs_init(void) {
-        static lv_fs_drv_t fs_drv;
-        lv_fs_drv_init(&fs_drv);
-        fs_drv.letter = LVGL_FS_LETTER;
-        fs_drv.open_cb = fs_open;
-        fs_drv.close_cb = fs_close;
-        fs_drv.read_cb = fs_read;
-        fs_drv.write_cb = fs_write;
-        fs_drv.seek_cb = fs_seek;
-        fs_drv.tell_cb = fs_tell;
-        fs_drv.dir_open_cb = fs_dir_open;
-        fs_drv.dir_read_cb = fs_dir_read;
-        fs_drv.dir_close_cb = fs_dir_close;
-
-        lv_fs_drv_register(&fs_drv);
-        ESP_LOGI(TAG, "LVGL File System registered for '%c:' -> '/sdcard'\n", LVGL_FS_LETTER);
     }
 };
 
@@ -353,13 +239,17 @@ private:
     }
     // Init sdmmc
     void Sdmmc_Init(){
-        bool card_state = false;
-        sdmmc_ = new Sdmmc(MOUNT_POINT, SD_MMC_CLK, SD_MMC_CMD, SD_MMC_D0, SD_MMC_D1, SD_MMC_D2, SD_MMC_D3, card_state);
-        if (card_state)
-        {
+        bool auto_format = false;
+        sdmmc_ = new Sdmmc(MOUNT_POINT, SD_MMC_CLK, SD_MMC_CMD, SD_MMC_D0, SD_MMC_D1, SD_MMC_D2, SD_MMC_D3, auto_format);
+        if (sdmmc_->IsMounted()) {
+            ESP_LOGI(TAG, "SDmmc Init Success");
+        } else {
             ESP_LOGE(TAG, "SDmmc Init Fail");
-        }else ESP_LOGI(TAG, "SDmmc Init Success");
+        }
     }
+
+
+    
     // Scan i2c devices
     void I2cDetect() {
         uint8_t address;

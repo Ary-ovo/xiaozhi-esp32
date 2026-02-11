@@ -11,11 +11,14 @@
 #include <stdio.h>
 #include "gui_guider.h"
 #include "custom.h"
-
+#include "../config.h"
+#include <string.h>
 
 
 void setup_scr_screen(lv_ui *ui)
 {
+    char path_buffer[64] = {0}; // 确保缓冲区够大
+
     //Write codes screen
     ui->screen = lv_obj_create(NULL);
     lv_obj_set_size(ui->screen, 400, 300);
@@ -37,7 +40,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_1, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_1, &lv_font_zaozigongfangxinranti_92, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_1, lv_font_zaozigongfangxinranti_92, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_1, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -60,7 +63,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_2, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_2, &lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_2, lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_2, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -83,7 +86,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_3, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_3, &lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_3, lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_3, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -106,7 +109,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_4, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_4, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_4, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_4, &lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_4, lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_4, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_4, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_4, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -129,7 +132,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_5, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_5, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_5, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_5, &lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_5, lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_5, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_5, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_5, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -152,7 +155,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_6, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_6, &lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_6, lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_6, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -169,7 +172,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_1, 40, 270);
     lv_obj_set_size(ui->screen_img_1, 16, 16);
     lv_obj_add_flag(ui->screen_img_1, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_1, &_100_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 100);
+    lv_image_set_src(ui->screen_img_1, path_buffer);
     lv_image_set_pivot(ui->screen_img_1, 50,50);
     lv_image_set_rotation(ui->screen_img_1, 0);
 
@@ -188,7 +193,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_label_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_label_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_label_7, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_label_7, &lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_label_7, lv_font_MFYueHei_18, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_label_7, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_label_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_label_7, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -205,7 +210,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_2, 129, 10);
     lv_obj_set_size(ui->screen_img_2, 16, 16);
     lv_obj_add_flag(ui->screen_img_2, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_2, &_100_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 100);
+    lv_image_set_src(ui->screen_img_2, path_buffer);
     lv_image_set_pivot(ui->screen_img_2, 50,50);
     lv_image_set_rotation(ui->screen_img_2, 0);
 
@@ -218,7 +225,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_3, 159, 10);
     lv_obj_set_size(ui->screen_img_3, 16, 16);
     lv_obj_add_flag(ui->screen_img_3, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_3, &_151_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 151);
+    lv_image_set_src(ui->screen_img_3, path_buffer);
     lv_image_set_pivot(ui->screen_img_3, 50,50);
     lv_image_set_rotation(ui->screen_img_3, 0);
 
@@ -231,7 +240,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_4, 189, 10);
     lv_obj_set_size(ui->screen_img_4, 16, 16);
     lv_obj_add_flag(ui->screen_img_4, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_4, &_309_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 309);
+    lv_image_set_src(ui->screen_img_4, path_buffer);
     lv_image_set_pivot(ui->screen_img_4, 50,50);
     lv_image_set_rotation(ui->screen_img_4, 0);
 
@@ -244,7 +255,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_5, 219, 10);
     lv_obj_set_size(ui->screen_img_5, 16, 16);
     lv_obj_add_flag(ui->screen_img_5, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_5, &_400_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 400);
+    lv_image_set_src(ui->screen_img_5, path_buffer);
     lv_image_set_pivot(ui->screen_img_5, 50,50);
     lv_image_set_rotation(ui->screen_img_5, 0);
 
@@ -257,7 +270,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_6, 249, 10);
     lv_obj_set_size(ui->screen_img_6, 16, 16);
     lv_obj_add_flag(ui->screen_img_6, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_6, &_499_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 499);
+    lv_image_set_src(ui->screen_img_6, path_buffer);
     lv_image_set_pivot(ui->screen_img_6, 50,50);
     lv_image_set_rotation(ui->screen_img_6, 0);
 
@@ -270,7 +285,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_7, 279, 10);
     lv_obj_set_size(ui->screen_img_7, 16, 16);
     lv_obj_add_flag(ui->screen_img_7, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_7, &_999_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 999);
+    lv_image_set_src(ui->screen_img_7, path_buffer);
     lv_image_set_pivot(ui->screen_img_7, 50,50);
     lv_image_set_rotation(ui->screen_img_7, 0);
 
@@ -283,7 +300,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_8, 309, 10);
     lv_obj_set_size(ui->screen_img_8, 16, 16);
     lv_obj_add_flag(ui->screen_img_8, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_8, &_350_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 350);
+    lv_image_set_src(ui->screen_img_8, path_buffer);
     lv_image_set_pivot(ui->screen_img_8, 50,50);
     lv_image_set_rotation(ui->screen_img_8, 0);
 
@@ -296,7 +315,9 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_pos(ui->screen_img_9, 375, 9);
     lv_obj_set_size(ui->screen_img_9, 16, 16);
     lv_obj_add_flag(ui->screen_img_9, LV_OBJ_FLAG_CLICKABLE);
-    lv_image_set_src(ui->screen_img_9, &_350_RGB565A8_16x16);
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%d.bin", ICONS_PATH, 350);
+    lv_image_set_src(ui->screen_img_9, "S:/icons/100.bin");
     lv_image_set_pivot(ui->screen_img_9, 50,50);
     lv_image_set_rotation(ui->screen_img_9, 0);
 
