@@ -13,10 +13,12 @@
 #include <esp_lvgl_port.h>
 #include <font_awesome.h>
 
+#include "assets/lang_config.h"
+
 #ifdef CONFIG_BOARD_TYPE_FOREST_HEART_S3
     #include "gui_guider.h"
     #include "custom.h"
-    lv_ui guider_ui;
+    lv_ui* guider_ui;
 #endif // CONFIG_BOARD_TYPE_FOREST_HEART_S3
 
 #define TAG "EpdDisplay"
@@ -167,7 +169,7 @@ void EpdDisplay::FlushToHardware()
     } else {
          // --- 局刷模式 (Partial Refresh) ---
          // true = 开启局刷 (Custom LUTs, 快但有残影)
-         esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_FULL);
+         esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_PARTIAL);
          
          // 注意：建议在这里增加计数器，否则全刷逻辑可能永远触发不了
          update_counter_++; 
@@ -183,6 +185,47 @@ void EpdDisplay::FlushToHardware()
 void EpdDisplay::TriggerFullRefresh() {
     update_counter_ = EPD_FULL_REFRESH_EVERY_X_FRAMES + 1;
     is_dirty_ = true;
+}
+
+static char last_status_str[64] = {0};
+
+void EpdDisplay::SetStatus(const char* status) {
+    // 判断状态是否真的变了
+    if (strcmp(status, last_status_str) != 0) {
+        bool need_full_refresh = false;
+
+        // ---------------------------------------------------
+        // 场景 1: 退出对话，回到待机 -> 全刷
+        // ---------------------------------------------------
+        if (strcmp(status, Lang::Strings::STANDBY) == 0) {
+            need_full_refresh = true;
+        }
+
+        // ---------------------------------------------------
+        // 场景 2: 进入 Listening 状态
+        // ---------------------------------------------------
+        else if (strcmp(status, Lang::Strings::LISTENING) == 0) {
+            // 核心判断：只有当“上一个状态”不是“Speaking”时，才算“首次进入”
+            // 逻辑：
+            // Idle -> Listening      : last != Speaking (全刷 ✅)
+            // Connecting -> Listening: last != Speaking (全刷 ✅)
+            // Speaking -> Listening  : last == Speaking (不刷 ❌)
+            update_counter_++;
+            if (strcmp(last_status_str, Lang::Strings::SPEAKING) != 0) {
+                need_full_refresh = true;
+            }
+        }
+
+        // 执行刷新
+        if (need_full_refresh) {
+            // 调用你的全刷函数
+            this->TriggerFullRefresh(); 
+        }
+
+        // 更新历史状态
+        strncpy(last_status_str, status, sizeof(last_status_str) - 1);
+    }
+    this->FlushToHardware();
 }
 
 // void EpdDisplay::SetChatMessage(const char* role, const char* content) {
@@ -356,77 +399,19 @@ EpdDisplay::~EpdDisplay() {
 void EpdDisplay::SetupUI() {
     DisplayLockGuard lock(this);
 
-    // auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-    // auto text_font = lvgl_theme->text_font()->font();
-    // auto icon_font = lvgl_theme->icon_font()->font();
-    // auto large_icon_font = lvgl_theme->large_icon_font()->font();
+    if (guider_ui != NULL) return;
+    guider_ui = (lv_ui *)malloc(sizeof(lv_ui));
+    if (guider_ui == NULL) {
+        LV_LOG_ERROR("UI Malloc Failed!");
+        return;
+    }
+    memset(guider_ui, 0, sizeof(lv_ui));
 
-    // auto screen = lv_screen_active();
-    // lv_obj_set_style_text_font(screen, text_font, 0);
-    // lv_obj_set_style_text_color(screen, lv_color_black(), 0);
+    custom_init(guider_ui);
 
-    // container_ = lv_obj_create(screen);
-    // lv_obj_set_size(container_, width_, height_);
-    // lv_obj_set_style_pad_all(container_, 0, 0);
-    // lv_obj_set_style_border_width(container_, 0, 0);
-    // lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_COLUMN);
-    // lv_obj_set_style_bg_opa(container_, LV_OPA_TRANSP, 0);
-
-    // top_bar_ = lv_obj_create(container_);
-    // lv_obj_set_size(top_bar_, width_, 30);
-    // lv_obj_set_style_pad_hor(top_bar_, 10, 0);
-    // lv_obj_set_style_border_side(top_bar_, LV_BORDER_SIDE_BOTTOM, 0);
-    // lv_obj_set_style_border_width(top_bar_, 2, 0);
-    // lv_obj_set_style_border_color(top_bar_, lv_color_black(), 0);
-    // lv_obj_set_flex_flow(top_bar_, LV_FLEX_FLOW_ROW);
-    // lv_obj_set_flex_align(top_bar_, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    // network_label_ = lv_label_create(top_bar_);
-    // lv_obj_set_style_text_font(network_label_, icon_font, 0);
-    // lv_label_set_text(network_label_, LV_SYMBOL_WIFI); 
-    // lv_obj_set_style_text_color(network_label_, lv_color_black(), 0);
-
-    // lv_obj_t* right_box = lv_obj_create(top_bar_);
-    // lv_obj_set_size(right_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    // lv_obj_set_flex_flow(right_box, LV_FLEX_FLOW_ROW);
-    // lv_obj_set_style_pad_gap(right_box, 10, 0);
-
-    // mute_label_ = lv_label_create(right_box);
-    // lv_label_set_text(mute_label_, ""); 
-    
-    // battery_label_ = lv_label_create(right_box);
-    // lv_obj_set_style_text_font(battery_label_, icon_font, 0);
-    // lv_label_set_text(battery_label_, LV_SYMBOL_BATTERY_FULL);
-
-    // lv_obj_t* emotion_box = lv_obj_create(container_);
-    // lv_obj_set_width(emotion_box, width_);
-    // lv_obj_set_flex_grow(emotion_box, 1);
-    // lv_obj_set_flex_flow(emotion_box, LV_FLEX_FLOW_COLUMN);
-    // lv_obj_set_flex_align(emotion_box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    // emotion_label_ = lv_label_create(emotion_box);
-    // lv_obj_set_style_text_font(emotion_label_, large_icon_font, 0);
-    // lv_label_set_text(emotion_label_, FONT_AWESOME_MICROCHIP_AI);
-    // lv_obj_set_style_text_color(emotion_label_, lv_color_black(), 0);
-
-    // lv_obj_t* msg_box = lv_obj_create(container_);
-    // lv_obj_set_size(msg_box, width_, 80);
-    // lv_obj_set_style_pad_all(msg_box, 10, 0);
-    // lv_obj_set_style_border_side(msg_box, LV_BORDER_SIDE_TOP, 0);
-    // lv_obj_set_style_border_width(msg_box, 2, 0);
-    // lv_obj_set_style_border_color(msg_box, lv_color_black(), 0);
-
-    // chat_message_label_ = lv_label_create(msg_box);
-    // lv_obj_set_width(chat_message_label_, width_ - 20);
-    // lv_label_set_long_mode(chat_message_label_, LV_LABEL_LONG_WRAP);
-    // lv_obj_set_style_text_align(chat_message_label_, LV_TEXT_ALIGN_CENTER, 0);
-    // lv_label_set_text(chat_message_label_, "Xiaozhi E-Paper Ready");
-
-    custom_init(&guider_ui);
-    
-    // [关键] 检查一下所有字体是否都加载了，如果没加载，不要进 UI，否则也是崩
+    // 检查一下所有字体是否都加载了
     if (lv_font_zaozigongfangxinranti_92 && lv_font_MFYueHei_18) {
-        setup_ui(&guider_ui);
+        setup_ui(guider_ui);
     } else {
         ESP_LOGE("App", "字体加载不全，跳过 UI 初始化以防止崩溃");
     }

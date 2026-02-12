@@ -86,6 +86,7 @@ public:
     // virtual void SetEmotion(const char* emotion) override;
     // virtual void SetTheme(Theme* theme) override;
     // virtual void SetPowerSaveMode(bool enabled);
+    virtual void SetStatus(const char* status);
 };
 
 #endif // EPD_DISPLAY_H
