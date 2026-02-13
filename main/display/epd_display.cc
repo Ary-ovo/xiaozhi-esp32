@@ -147,36 +147,20 @@ void EpdDisplay::FlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_
 void EpdDisplay::FlushToHardware()
 {
     if (!is_dirty_) return;
-
     ESP_LOGD(TAG, "Flushing to E-Ink (M01)...");
-
-    // Step A: Copy from PSRAM shadow buffer to Internal DMA buffer
     {
         DisplayLockGuard lock(this);
-        // Copy 1bpp data. 
-        // snapshot_buf_ has extra padding so this memcpy is strictly safe.
         memcpy(snapshot_buf_, lvgl_buf_, (width_ * height_) / 8);
         is_dirty_ = false;
     }
-
-    // Step B: Set Refresh Mode (Switching Logic for M01)
     if (update_counter_ >= EPD_FULL_REFRESH_EVERY_X_FRAMES) {
-         // --- 全刷模式 (Full Refresh) ---
-         // false = 关闭局刷 = 使用全刷 (OTP LUTs, 慢但清晰)
          esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_FULL);
          
          update_counter_ = 0;
     } else {
-         // --- 局刷模式 (Partial Refresh) ---
-         // true = 开启局刷 (Custom LUTs, 快但有残影)
          esp_lcd_gdew042t2_set_mode(panel_, GDEW042T2_REFRESH_PARTIAL);
-         
-         // 注意：建议在这里增加计数器，否则全刷逻辑可能永远触发不了
          update_counter_++; 
     }
-
-    // Step C: Send the Internal RAM buffer via DMA
-    // 标准 API，不需要改动
     esp_lcd_panel_draw_bitmap(panel_, 0, 0, width_, height_, snapshot_buf_);
     ESP_LOGI(TAG, "FLUSH");
 }
@@ -193,49 +177,32 @@ void EpdDisplay::SetStatus(const char* status) {
     // 判断状态是否真的变了
     if (strcmp(status, last_status_str) != 0) {
         bool need_full_refresh = false;
-
-        // ---------------------------------------------------
-        // 场景 1: 退出对话，回到待机 -> 全刷
-        // ---------------------------------------------------
         if (strcmp(status, Lang::Strings::STANDBY) == 0) {
             need_full_refresh = true;
         }
 
-        // ---------------------------------------------------
-        // 场景 2: 进入 Listening 状态
-        // ---------------------------------------------------
         else if (strcmp(status, Lang::Strings::LISTENING) == 0) {
-            // 核心判断：只有当“上一个状态”不是“Speaking”时，才算“首次进入”
-            // 逻辑：
-            // Idle -> Listening      : last != Speaking (全刷 ✅)
-            // Connecting -> Listening: last != Speaking (全刷 ✅)
-            // Speaking -> Listening  : last == Speaking (不刷 ❌)
             update_counter_++;
             if (strcmp(last_status_str, Lang::Strings::SPEAKING) != 0) {
                 need_full_refresh = true;
             }
         }
-
-        // 执行刷新
         if (need_full_refresh) {
-            // 调用你的全刷函数
             this->TriggerFullRefresh(); 
         }
-
-        // 更新历史状态
         strncpy(last_status_str, status, sizeof(last_status_str) - 1);
     }
     this->FlushToHardware();
 }
 
-// void EpdDisplay::SetChatMessage(const char* role, const char* content) {
-//     DisplayLockGuard lock(this);
-//     if (!chat_message_label_) return;
-//     // lv_label_set_text(chat_message_label_, content);
-//     update_counter_++;
-//     if (role && strcmp(role, "system") == 0) 
-//         TriggerFullRefresh();
-// }
+void EpdDisplay::SetChatMessage(const char* role, const char* content) {
+    DisplayLockGuard lock(this);
+    if (!chat_message_label_) return;
+    // lv_label_set_text(chat_message_label_, content);
+    update_counter_++;
+    if (role && strcmp(role, "system") == 0) 
+        TriggerFullRefresh();
+}
 
 // void EpdDisplay::SetEmotion(const char* emotion) {
 //     DisplayLockGuard lock(this);
