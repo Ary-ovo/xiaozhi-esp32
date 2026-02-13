@@ -639,10 +639,12 @@ elseif(CONFIG_BOARD_TYPE_FOREST_HEART_S3)
     list(APPEND INCLUDE_DIRS 
         "boards/${BOARD_TYPE}/custom"
         "boards/${BOARD_TYPE}/generated"
+        "boards/${BOARD_TYPE}/src"
     )
     file(GLOB SUB_DIR_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/custom/*.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/generated/*.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/src/*.cc"
     )
     list(APPEND SOURCES ${SUB_DIR_SOURCES})
     set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)

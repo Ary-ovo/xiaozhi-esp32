@@ -49,6 +49,16 @@ std::string Ota::GetCheckVersionUrl() {
     return url;
 }
 
+int Ota::IsNeedAuth() {
+    // Get authentication configuration
+    Settings settings("auth", true);
+    int force_auth = settings.GetInt("force_auth");
+     if(force_auth) {
+        settings.SetInt("force_auth", 0);
+    }
+    return force_auth;
+}
+
 std::unique_ptr<Http> Ota::SetupHttp() {
     auto& board = Board::GetInstance();
     auto network = board.GetNetwork();
@@ -64,6 +74,14 @@ std::unique_ptr<Http> Ota::SetupHttp() {
     http->SetHeader("User-Agent", user_agent);
     http->SetHeader("Accept-Language", Lang::CODE);
     http->SetHeader("Content-Type", "application/json");
+
+#if CONFIG_USE_LSPLATFORM
+
+    if(IsNeedAuth()) {
+        ESP_LOGD(TAG, "force-reset:  1");
+        http->SetHeader("force-reset", "1");
+    }
+#endif
 
     return http;
 }
@@ -104,6 +122,7 @@ esp_err_t Ota::CheckVersion() {
     }
 
     data = http->ReadAll();
+    ESP_LOGI(TAG, "Received response: %s", data.c_str());
     http->Close();
 
     // Response: { "firmware": { "version": "1.0.0", "url": "http://" } }

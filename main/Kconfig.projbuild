@@ -1,10 +1,38 @@
 menu "Xiaozhi Assistant"
 
-config OTA_URL
-    string "Default OTA URL"
-    default "https://api.tenclass.net/xiaozhi/ota/"
+choice OTA_PROVIDER
+    prompt "Select OTA Server Provider"
+    default OTA_PROVIDER_XIAOZHI
     help
-        The application will access this URL to check for new firmwares and server address.
+        Select which backend server to use for Over-The-Air updates.
+
+    config OTA_PROVIDER_XIAOZHI
+        bool "Xiaozhi (Official)"
+
+    config OTA_PROVIDER_XIAOLING
+        bool "Xiaoling AI"
+
+    config OTA_PROVIDER_CUSTOM
+        bool "Custom URL"
+endchoice
+
+config OTA_URL
+    string "OTA URL"
+    # 当选择 Xiaozhi 时，默认使用此链接
+    default "https://api.tenclass.net/xiaozhi/ota/" if OTA_PROVIDER_XIAOZHI
+    # 当选择 Xiaoling 时，默认使用此链接
+    default "https://api.listenai.com/v1/xiaoling/04ec8e3f-caa6-458c-9dc1-1d6a179253bf/ota/" if OTA_PROVIDER_XIAOLING
+    # 当选择 Custom 时，使用此占位符
+    default "http://your-custom-url.com/ota/" if OTA_PROVIDER_CUSTOM
+    help
+        The application will access this URL to check for new firmwares.
+        The default value changes automatically based on the provider selection above.
+
+config USE_LSPLATFORM
+    bool "Connect to the Listenai AI platform"
+    default y
+    help
+        配置小智连接到聆思AI大模型链路
 
 choice
     prompt "Flash Assets"

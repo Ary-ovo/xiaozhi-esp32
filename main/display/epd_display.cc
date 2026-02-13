@@ -173,36 +173,36 @@ void EpdDisplay::TriggerFullRefresh() {
 
 static char last_status_str[64] = {0};
 
-void EpdDisplay::SetStatus(const char* status) {
-    // 判断状态是否真的变了
-    if (strcmp(status, last_status_str) != 0) {
-        bool need_full_refresh = false;
-        if (strcmp(status, Lang::Strings::STANDBY) == 0) {
-            need_full_refresh = true;
-        }
+// void EpdDisplay::SetStatus(const char* status) {
+//     // 判断状态是否真的变了
+//     if (strcmp(status, last_status_str) != 0) {
+//         bool need_full_refresh = false;
+//         if (strcmp(status, Lang::Strings::STANDBY) == 0) {
+//             need_full_refresh = true;
+//         }
 
-        else if (strcmp(status, Lang::Strings::LISTENING) == 0) {
-            update_counter_++;
-            if (strcmp(last_status_str, Lang::Strings::SPEAKING) != 0) {
-                need_full_refresh = true;
-            }
-        }
-        if (need_full_refresh) {
-            this->TriggerFullRefresh(); 
-        }
-        strncpy(last_status_str, status, sizeof(last_status_str) - 1);
-    }
-    this->FlushToHardware();
-}
+//         else if (strcmp(status, Lang::Strings::LISTENING) == 0) {
+//             update_counter_++;
+//             if (strcmp(last_status_str, Lang::Strings::SPEAKING) != 0) {
+//                 need_full_refresh = true;
+//             }
+//         }
+//         if (need_full_refresh) {
+//             this->TriggerFullRefresh(); 
+//         }
+//         strncpy(last_status_str, status, sizeof(last_status_str) - 1);
+//     }
+//     this->FlushToHardware();
+// }
 
-void EpdDisplay::SetChatMessage(const char* role, const char* content) {
-    DisplayLockGuard lock(this);
-    if (!chat_message_label_) return;
-    // lv_label_set_text(chat_message_label_, content);
-    update_counter_++;
-    if (role && strcmp(role, "system") == 0) 
-        TriggerFullRefresh();
-}
+// void EpdDisplay::SetChatMessage(const char* role, const char* content) {
+//     DisplayLockGuard lock(this);
+//     if (!chat_message_label_) return;
+//     // lv_label_set_text(chat_message_label_, content);
+//     update_counter_++;
+//     if (role && strcmp(role, "system") == 0) 
+//         TriggerFullRefresh();
+// }
 
 // void EpdDisplay::SetEmotion(const char* emotion) {
 //     DisplayLockGuard lock(this);
