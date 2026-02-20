@@ -8,35 +8,23 @@
 #define TAG "RgbwStrip"
 
 RgbwStrip::RgbwStrip(gpio_num_t gpio, uint8_t max_leds) : max_leds_(max_leds) {
-    // 检查引脚有效性
     assert(gpio != GPIO_NUM_NC);
 
     colors_.resize(max_leds_);
 
-    // --- 初始化配置 ---
     led_strip_config_t strip_config = {};
     strip_config.strip_gpio_num = gpio;
     strip_config.max_leds = max_leds_;
-    
-    // [关键配置] 适配 SK6812 RGBW
     strip_config.led_model = LED_MODEL_SK6812; 
-    // 使用 GRBW 顺序 (SK6812 最常见的线序)
     strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRBW;
-    
     strip_config.flags.invert_out = false;
 
-    // RMT 后端配置
     led_strip_rmt_config_t rmt_config = {};
-    rmt_config.resolution_hz = 10 * 1000 * 1000; // 10MHz Resolution
-    // rmt_config.flags.with_dma = false; // 根据需要启用/禁用 DMA
-
-    // 创建设备句柄
+    rmt_config.resolution_hz = 10 * 1000 * 1000;
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip_));
     
-    // 上电先熄灭
     led_strip_clear(led_strip_);
 
-    // --- 定时器初始化 (用于动画) ---
     esp_timer_create_args_t strip_timer_args = {
         .callback = [](void *arg) {
             auto strip = static_cast<RgbwStrip*>(arg);
@@ -57,7 +45,7 @@ RgbwStrip::RgbwStrip(gpio_num_t gpio, uint8_t max_leds) : max_leds_(max_leds) {
 
 RgbwStrip::~RgbwStrip() {
     esp_timer_stop(strip_timer_);
-    esp_timer_delete(strip_timer_); // 记得删除定时器
+    esp_timer_delete(strip_timer_);
     if (led_strip_ != nullptr) {
         led_strip_del(led_strip_);
     }
@@ -65,11 +53,10 @@ RgbwStrip::~RgbwStrip() {
 
 void RgbwStrip::SetAllColor(RgbwColor color) {
     std::lock_guard<std::mutex> lock(mutex_);
-    esp_timer_stop(strip_timer_); // 停止当前动画
+    esp_timer_stop(strip_timer_);
     
     for (int i = 0; i < max_leds_; i++) {
         colors_[i] = color;
-        // 使用 RGBW 函数
         led_strip_set_pixel_rgbw(led_strip_, i, color.red, color.green, color.blue, color.white);
     }
     led_strip_refresh(led_strip_);
@@ -87,7 +74,6 @@ void RgbwStrip::SetSingleColor(uint8_t index, RgbwColor color) {
 }
 
 void RgbwStrip::Blink(RgbwColor color, int interval_ms) {
-    // 先更新内部颜色状态
     for (int i = 0; i < max_leds_; i++) {
         colors_[i] = color;
     }
@@ -110,7 +96,6 @@ void RgbwStrip::FadeOut(int interval_ms) {
     StartStripTask(interval_ms, [this]() {
         bool all_off = true;
         for (int i = 0; i < max_leds_; i++) {
-            // 所有4个通道都衰减
             colors_[i].red /= 2;
             colors_[i].green /= 2;
             colors_[i].blue /= 2;
@@ -136,7 +121,6 @@ void RgbwStrip::Breathe(RgbwColor low, RgbwColor high, int interval_ms) {
         static bool increase = true;
         static RgbwColor color = low;
         
-        // 辅助 lambda：处理单个通道的增减
         auto update_channel = [](uint8_t &current, uint8_t target, bool inc) {
             if (inc) {
                 if (current < target) current++;
@@ -145,13 +129,11 @@ void RgbwStrip::Breathe(RgbwColor low, RgbwColor high, int interval_ms) {
             }
         };
 
-        // 更新所有4个通道
         update_channel(color.red,   increase ? high.red : low.red,     increase);
         update_channel(color.green, increase ? high.green : low.green, increase);
         update_channel(color.blue,  increase ? high.blue : low.blue,   increase);
         update_channel(color.white, increase ? high.white : low.white, increase);
 
-        // 检查边界
         bool reached_target = true;
         if (increase) {
             if (color.red < high.red || color.green < high.green || color.blue < high.blue || color.white < high.white) reached_target = false;
@@ -171,7 +153,7 @@ void RgbwStrip::Breathe(RgbwColor low, RgbwColor high, int interval_ms) {
 }
 
 void RgbwStrip::Scroll(RgbwColor low, RgbwColor high, int length, int interval_ms) {
-    // 初始化背景色
+
     for (int i = 0; i < max_leds_; i++) {
         colors_[i] = low;
     }
@@ -179,17 +161,14 @@ void RgbwStrip::Scroll(RgbwColor low, RgbwColor high, int length, int interval_m
     StartStripTask(interval_ms, [this, low, high, length]() {
         static int offset = 0;
         
-        // 重置背景
         for (int i = 0; i < max_leds_; i++) {
             colors_[i] = low;
         }
-        // 设置前景(高亮条)
         for (int j = 0; j < length; j++) {
             int i = (offset + j) % max_leds_;
             colors_[i] = high;
         }
         
-        // 输出
         for (int i = 0; i < max_leds_; i++) {
             led_strip_set_pixel_rgbw(led_strip_, i, colors_[i].red, colors_[i].green, colors_[i].blue, colors_[i].white);
         }
@@ -212,69 +191,55 @@ void RgbwStrip::StartStripTask(int interval_ms, std::function<void()> cb) {
 void RgbwStrip::SetBrightness(uint8_t default_brightness, uint8_t low_brightness) {
     default_brightness_ = default_brightness;
     low_brightness_ = low_brightness;
-    OnStateChanged(); // 设置完亮度立即刷新当前状态
+    OnStateChanged();
 }
 
-// [核心] 状态机颜色映射
-// 格式: {R, G, B, W}
 void RgbwStrip::OnStateChanged() {
     auto& app = Application::GetInstance();
     auto device_state = app.GetDeviceState();
     
-    // 定义常用颜色以便复用
     RgbwColor off = {0, 0, 0, 0};
     RgbwColor pure_white_high = {0, 0, 0, default_brightness_};
     RgbwColor pure_white_low  = {0, 0, 0, low_brightness_};
     
-    // 蓝色 (用于配网/启动)
     RgbwColor blue_high = {0, 0, default_brightness_, 0};
     RgbwColor blue_low  = {0, 0, low_brightness_, 0};
 
-    // 绿色 (用于说话/激活)
     RgbwColor green_high = {0, default_brightness_, 0, 0};
     
-    // 红色 (用于听/错误)
     RgbwColor red_high = {default_brightness_, 0, 0, 0};
 
     switch (device_state) {
         case kDeviceStateStarting:
-            // 启动：蓝色跑马灯
             Scroll(blue_low, blue_high, 3, 100);
             break;
 
         case kDeviceStateWifiConfiguring:
-            // 配网：蓝色呼吸
             Breathe(blue_low, blue_high, 20); 
             break;
 
         case kDeviceStateIdle:
-            // 空闲：淡出至关闭 (或者你可以改为微弱的白光呼吸)
             FadeOut(50);
             break;
 
         case kDeviceStateConnecting:
-            // 连接中：纯白光跑马灯 (表示数据正在传输)
             Scroll(pure_white_low, pure_white_high, 3, 100);
             break;
 
         case kDeviceStateListening:
         case kDeviceStateAudioTesting:
-            // 听唤醒词：全红
             SetAllColor(red_high);
             break;
 
         case kDeviceStateSpeaking:
-            // AI说话：全绿 (也可以加上一点白光让颜色更柔和 {0, 50, 0, 10})
             SetAllColor(green_high);
             break;
 
         case kDeviceStateUpgrading:
-            // 升级：绿色快闪
             Blink(green_high, 100);
             break;
 
         case kDeviceStateActivating:
-            // 激活/唤醒：绿色慢闪
             Blink(green_high, 500);
             break;
 

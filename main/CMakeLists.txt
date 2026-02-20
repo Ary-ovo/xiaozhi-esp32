@@ -64,6 +64,7 @@ list(APPEND SOURCES
     "boards/common/tca9537.cc"
     "boards/common/sdmmc.cc"
     "boards/common/mmw.cc"
+    "boards/common/weather_service.cc"
 )
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
 

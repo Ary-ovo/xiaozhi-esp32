@@ -18,54 +18,30 @@ private:
     
     int width_ = 0;
     int height_ = 0;
+    int last_battery_level_ = 0;
 
-    // ==========================================
-    // 双缓冲机制成员
-    // ==========================================
-    // Buffer 1: LVGL 绘图区 (一级缓存)
+
+    QueueHandle_t display_queue_ = nullptr;
+    int update_counter_ = 0;
+    int64_t last_refresh_time_ = 0; // 上一次刷新发送的时间 (us)
+    // 定义发送给显示线程的命令
+    struct EpdCmd {
+        bool force_full_refresh; // 是否强制全刷（可选）
+    };
     void* lvgl_buf_ = nullptr;
-    
-    // Buffer 2: 硬件发送快照区 (二级缓存)
     void* snapshot_buf_ = nullptr;
-
-    // Buffer 3: 【新增】LVGL 内部绘图缓存 (Partial)
     void* draw_buf_ = nullptr;
-    
-    // 脏标记：记录是否有新的内容需要刷新
     volatile bool is_dirty_ = false;
 
-    // 定时器句柄
     esp_timer_handle_t refresh_timer_ = nullptr;
 
-    // 刷新计数器 (用于触发定期全刷)
-    int update_counter_ = 0;
 
-    // ==========================================
-    // UI 对象成员 (修复 top_bar_ 未定义错误)
-    // ==========================================
-    lv_obj_t* container_ = nullptr;
-    lv_obj_t* top_bar_ = nullptr;       // 顶部状态栏
-    lv_obj_t* chat_message_label_ = nullptr; // 底部文字区域
-    lv_obj_t* emotion_label_ = nullptr; // 中间表情
-
-    // 状态栏图标
-    lv_obj_t* network_label_ = nullptr;
-    lv_obj_t* battery_label_ = nullptr;
-    lv_obj_t* mute_label_ = nullptr;
-
-    // ==========================================
-    // 内部函数
-    // ==========================================
     void SetupUI();
-
-    // 真正的硬件刷新函数 (由定时器触发)
-    void FlushToHardware();
-
-    // 触发全刷清理残影的辅助函数
-    void TriggerFullRefresh();
-
+    void InitAsync();
+    
     // "假"的刷新回调，只做标记
     static void FlushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map);
+    static void DisplayTask(void* arg);
 
     virtual bool Lock(int timeout_ms = 0) override;
     virtual void Unlock() override;
@@ -79,14 +55,17 @@ public:
      * @param height 高度 (300)
      */
     EpdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width, int height);
-    
     ~EpdDisplay();
 
-    // virtual void SetChatMessage(const char* role, const char* content) override;
-    // virtual void SetEmotion(const char* emotion) override;
-    // virtual void SetTheme(Theme* theme) override;
-    // virtual void SetPowerSaveMode(bool enabled);
-    // virtual void SetStatus(const char* status);
+    void UpdateWeatherUI();
+    void FlushToHardware();
+    void TriggerFullRefresh();
+    void UpdateDateDisplay();
+    
+    virtual void SetChatMessage(const char* role, const char* content) override;
+    virtual void SetEmotion(const char* emotion) override;
+    virtual void SetStatus(const char* status);
+    virtual void UpdateStatusBar(bool update_all);
 };
 
 #endif // EPD_DISPLAY_H

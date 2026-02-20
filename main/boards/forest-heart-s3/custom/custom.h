@@ -19,7 +19,10 @@ void custom_init(lv_ui *ui);
 
 
 extern lv_font_t* lv_font_zaozigongfangxinranti_92;
+extern lv_font_t* lv_font_MFYueHei_22;
+extern lv_font_t* lv_font_MFYueHei_20;
 extern lv_font_t* lv_font_MFYueHei_18;
+extern lv_font_t* lv_font_MFYueHei_12;
 
 #ifdef __cplusplus
 }

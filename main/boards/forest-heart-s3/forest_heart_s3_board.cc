@@ -5,6 +5,7 @@
 #include "i2c_device.h"
 #include "config.h"
 #include "axp2101.h"
+#include "button.h"
 #include "sdmmc.h"
 #include <esp_log.h>
 #include "driver/gpio.h"
@@ -163,7 +164,7 @@ private:
     PresenceSensor* radar_ = nullptr;
     RgbwStrip* rgbwstrip_ = nullptr;
     PowerSaveTimer* power_save_timer_;
-
+    Button boot_button_;
     // 初始化 I2C 总线
     void InitializeI2c() {
         i2c_master_bus_config_t i2c_bus_cfg = {
@@ -214,7 +215,7 @@ private:
             .cs_gpio_num = DISPLAY_SPI_CS_PIN,
             .dc_gpio_num = DISPLAY_DC_PIN,
             .spi_mode = 0,
-            .pclk_hz = 10 * 1000 * 1000,
+            .pclk_hz = 20 * 1000 * 1000,
             .trans_queue_depth = 10,
             .lcd_cmd_bits = 8,
             .lcd_param_bits = 8,
@@ -234,7 +235,6 @@ private:
         ESP_ERROR_CHECK(esp_lcd_new_panel_gdew042t2(panel_io, &panel_config, &panel));
         esp_lcd_panel_reset(panel);
         ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
-        esp_lcd_gdew042t2_set_mode(panel, GDEW042T2_REFRESH_FULL);
         display_ = new EpdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
     // Init sdmmc
@@ -246,10 +246,7 @@ private:
         } else {
             ESP_LOGE(TAG, "SDmmc Init Fail");
         }
-    }
-
-
-    
+    }    
     // Scan i2c devices
     void I2cDetect() {
         uint8_t address;
@@ -281,8 +278,26 @@ private:
         rgbwstrip_ = new RgbwStrip(SK6812RGBW_DATA_PIN, SK6812RGBW_NUM);
     }
 
+    void InitializeButtons() {
+        boot_button_.OnClick([this]() {
+            auto base_display = this->GetDisplay();
+            if (base_display != nullptr) {
+                auto epd_display = static_cast<EpdDisplay*>(base_display);
+                ESP_LOGI(TAG, "Boot button clicked! Triggering EPD refresh...");
+                epd_display->UpdateWeatherUI();
+                epd_display->UpdateDateDisplay();
+                epd_display->TriggerFullRefresh(); 
+                epd_display->FlushToHardware(); 
+            }
+        });
+        boot_button_.OnPressDown([this]() {
+        });
+        boot_button_.OnPressUp([this]() {
+        });
+    }
+
 public:
-    ForestHeartS3(){
+    ForestHeartS3() : boot_button_(BOOT_BUTTON_GPIO){
         size_t internal_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
         size_t spiram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
         ESP_LOGI(TAG, " Internal RAM Total: %d bytes (%.2f KB)", internal_total, internal_total / 1024.0);
@@ -299,6 +314,8 @@ public:
         I2cDetect();
         // SPI 初始化
         InitializeSpi();
+        // Init button 
+        InitializeButtons();
         // 墨水屏初始化 & UI 启动
         InitializeGDEW042T2Display();
         // // Init MicroWave Radar
@@ -318,6 +335,12 @@ public:
     }
     virtual bool GetBatteryLevel(int &level, bool& charging, bool& discharging) override {
         static bool last_discharging = false;
+        if (!pmic_->IsBatteryConnected()) {
+                    level = -1;       // -1 代表未接电池
+                    charging = false;
+                    discharging = false;
+                    return true;
+        }
         charging = pmic_->IsCharging();
         discharging = pmic_->IsDischarging();
         if (discharging != last_discharging) {

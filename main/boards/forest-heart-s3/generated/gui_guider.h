@@ -18,25 +18,35 @@ extern "C" {
 
 typedef struct
 {
-  
+	lv_obj_t *screen_1;
+	bool screen_1_del;
+	lv_obj_t *screen_1_emo_img;
+	lv_obj_t *screen_1_chat_msg;
+
 	lv_obj_t *screen;
 	bool screen_del;
-	lv_obj_t *screen_label_1;
-	lv_obj_t *screen_label_2;
-	lv_obj_t *screen_label_3;
-	lv_obj_t *screen_label_4;
-	lv_obj_t *screen_label_5;
-	lv_obj_t *screen_label_6;
-	lv_obj_t *screen_img_1;
-	lv_obj_t *screen_label_7;
-	lv_obj_t *screen_img_2;
-	lv_obj_t *screen_img_3;
-	lv_obj_t *screen_img_4;
-	lv_obj_t *screen_img_5;
-	lv_obj_t *screen_img_6;
-	lv_obj_t *screen_img_7;
-	lv_obj_t *screen_img_8;
-	lv_obj_t *screen_img_9;
+	lv_obj_t *weather_cont;
+	lv_obj_t *now_weather_cont;
+	lv_obj_t *screen_label_day;
+	lv_obj_t *screen_label_mon;
+	lv_obj_t *screen_label_date;
+	lv_obj_t *screen_label_wday;
+	lv_obj_t *screen_label_location;
+	lv_obj_t *screen_label_toxicsoul_label;
+	lv_obj_t *screen_img_now_weather_icon;
+	lv_obj_t *screen_label_now_weather_label;
+	lv_obj_t *screen_img_weather_day1;
+	lv_obj_t *screen_img_weather_day2;
+	lv_obj_t *screen_img_weather_day3;
+	lv_obj_t *screen_img_weather_day4;
+	lv_obj_t *screen_img_weather_day5;
+	lv_obj_t *screen_img_weather_day6;
+	lv_obj_t *screen_img_weather_day7;
+
+	lv_obj_t* battery_label;
+    lv_obj_t* battery_value;
+	lv_obj_t* network_state;
+
 }lv_ui;
 
 typedef void (*ui_setup_scr_t)(lv_ui * ui);
@@ -51,19 +61,7 @@ extern lv_ui* guider_ui;
 
 
 void setup_scr_screen(lv_ui *ui);
-// LV_IMAGE_DECLARE(_100_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_151_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_309_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_400_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_499_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_999_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_350_RGB565A8_16x16);
-// LV_IMAGE_DECLARE(_qweather_RGB565A8_16x16);
-
-// LV_FONT_DECLARE(lv_font_zaozigongfangxinranti_92)
-// LV_FONT_DECLARE(lv_font_montserratMedium_16)
-// LV_FONT_DECLARE(lv_font_MFYueHei_18)
-
+void setup_scr_screen_1(lv_ui *ui);
 
 #ifdef __cplusplus
 }

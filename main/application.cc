@@ -8,7 +8,10 @@
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
+#include "esp_sntp.h"
+#include "time.h"
 #include "settings.h"
+#include "weather_service.h"
 
 #include <cstring>
 #include <esp_log.h>
@@ -247,6 +250,13 @@ void Application::Run() {
 
         if (bits & MAIN_EVENT_CLOCK_TICK) {
             clock_ticks_++;
+            if (clock_ticks_ > 0 && clock_ticks_ % 1800 == 0) {
+                {
+                    ESP_LOGI(TAG, "Time to update weather...");
+                    WeatherService::GetInstance().UpdateWeatherAsync();
+
+                }
+            }
             auto display = Board::GetInstance().GetDisplay();
             display->UpdateStatusBar();
         
@@ -278,8 +288,41 @@ void Application::HandleNetworkConnectedEvent() {
         }, "activation", 4096 * 2, this, 2, &activation_task_handle_);
     }
 
+    setenv("TZ", "CST-8", 1);
+    tzset();
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "ntp.aliyun.com"); 
+    esp_sntp_setservername(1, "pool.ntp.org"); 
+    esp_sntp_init();
+    
+    time_t now = 0;
+    struct tm timeinfo = { 0 };
+    int retry = 0;
+    const int retry_count = 10;
+
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    while (timeinfo.tm_year < (2020 - 1900) && ++retry < retry_count) {
+        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+        vTaskDelay(pdMS_TO_TICKS(2000)); // 每次等 2 秒
+        time(&now);
+        localtime_r(&now, &timeinfo);
+    }
+
+    if (retry == retry_count) {
+        ESP_LOGE(TAG, "SNTP 同步超时！");
+    } else {
+        char strftime_buf[64];
+        strftime(strftime_buf, sizeof(strftime_buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        ESP_LOGI(TAG, "当前系统时间: %s", strftime_buf);
+    }
+
     // Update the status bar immediately to show the network state
     auto display = Board::GetInstance().GetDisplay();
+    ESP_LOGI(TAG, "Triggering first weather update...");
+    WeatherService::GetInstance().UpdateWeatherAsync();
+    
     display->UpdateStatusBar(true);
 }
 
@@ -389,8 +432,8 @@ void Application::CheckAssetsVersion() {
 
     // Apply assets
     assets.Apply();
-    display->SetChatMessage("system", "");
-    display->SetEmotion("microchip_ai");
+    // display->SetChatMessage("system", "");
+    // display->SetEmotion("microchip_ai");
 }
 
 void Application::CheckNewVersion() {
@@ -808,18 +851,18 @@ void Application::HandleStateChangedEvent() {
         case kDeviceStateUnknown:
         case kDeviceStateIdle:
             display->SetStatus(Lang::Strings::STANDBY);
-            display->SetEmotion("neutral");
+            // display->SetEmotion("neutral");
             audio_service_.EnableVoiceProcessing(false);
             audio_service_.EnableWakeWordDetection(true);
             break;
         case kDeviceStateConnecting:
             display->SetStatus(Lang::Strings::CONNECTING);
-            display->SetEmotion("neutral");
+            // display->SetEmotion("neutral");
             display->SetChatMessage("system", "");
             break;
         case kDeviceStateListening:
             display->SetStatus(Lang::Strings::LISTENING);
-            display->SetEmotion("neutral");
+            // display->SetEmotion("neutral");
 
             // Make sure the audio processor is running
             if (!audio_service_.IsAudioProcessorRunning()) {

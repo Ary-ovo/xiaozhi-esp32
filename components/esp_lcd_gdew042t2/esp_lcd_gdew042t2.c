@@ -147,6 +147,7 @@ typedef struct {
     int busy_gpio_num;
     bool busy_active_level; 
     bool reset_level;
+    gdew042t2_refresh_mode_t current_mode;
 } gdew042t2_panel_t;
 
 static esp_err_t panel_gdew042t2_del(esp_lcd_panel_t *panel);
@@ -160,7 +161,8 @@ static esp_err_t panel_gdew042t2_disp_on_off(esp_lcd_panel_t *panel, bool off);
 static void _wait_busy(gdew042t2_panel_t *epd)
 {
     if (epd->busy_gpio_num >= 0) {
-        int timeout_ms = 5000; 
+        int timeout_ms = 30000; 
+        ESP_LOGI(TAG, "Wait for busy");
         while (gpio_get_level(epd->busy_gpio_num) == epd->busy_active_level) {
             vTaskDelay(pdMS_TO_TICKS(10));
             timeout_ms -= 10;
@@ -169,6 +171,7 @@ static void _wait_busy(gdew042t2_panel_t *epd)
                 break;
             }
         }
+        ESP_LOGI(TAG, "Flush Comlite");
     } else {
         vTaskDelay(pdMS_TO_TICKS(500)); 
     }
@@ -209,7 +212,7 @@ static esp_err_t panel_gdew042t2_init(esp_lcd_panel_t *panel)
     };
     ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, IL0398_CMD_RESOLUTION, res_param, 4), TAG, "Res Set failed");
 
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, IL0398_CMD_VCOM_DC, (uint8_t[]){0x12}, 1), TAG, "Vcom DC failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, IL0398_CMD_VCOM_DC, (uint8_t[]){0x1A}, 1), TAG, "Vcom DC failed");
     ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, 0x50, (uint8_t[]){0xd7}, 1), TAG, "Vcom Interval failed");
 
     // Default to Full Refresh LUTs
@@ -299,6 +302,8 @@ esp_err_t esp_lcd_new_panel_gdew042t2(const esp_lcd_panel_io_handle_t io, const 
     epd->busy_gpio_num = -1;
     epd->busy_active_level = 1; 
     
+    epd->current_mode = GDEW042T2_REFRESH_FULL;
+
     if (panel_dev_config->vendor_config) {
         esp_lcd_panel_gdew042t2_config_t *config = (esp_lcd_panel_gdew042t2_config_t *)panel_dev_config->vendor_config;
         epd->busy_gpio_num = config->busy_gpio_num;
@@ -338,23 +343,31 @@ esp_err_t esp_lcd_new_panel_gdew042t2(const esp_lcd_panel_io_handle_t io, const 
 }
 
 // --- Set Refresh Mode (Switch LUTs) ---
+// esp_lcd_gdew042t2.c
+
 esp_err_t esp_lcd_gdew042t2_set_mode(esp_lcd_panel_handle_t panel, gdew042t2_refresh_mode_t mode)
 {
     gdew042t2_panel_t *epd = __containerof(panel, gdew042t2_panel_t, base);
     esp_lcd_panel_io_handle_t io = epd->io;
-    
+
+    if (epd->current_mode == mode) {
+        return ESP_OK;
+    }
+
     _wait_busy(epd);
 
     if (mode == GDEW042T2_REFRESH_FULL) {
-        ESP_LOGI(TAG, "Mode: Full Refresh");
+        ESP_LOGI(TAG, "Switching to Full Refresh Mode");
+        // 发送全刷 LUTs
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_VCOM, lut_20_vcom0_full, sizeof(lut_20_vcom0_full));
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_WW, lut_21_ww_full, sizeof(lut_21_ww_full));
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_BW, lut_22_bw_full, sizeof(lut_22_bw_full));
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_WB, lut_23_wb_full, sizeof(lut_23_wb_full));
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_BB, lut_24_bb_full, sizeof(lut_24_bb_full));
     } else {
-        ESP_LOGI(TAG, "Mode: Partial Refresh");
-        // Partial refresh LUTs are padded to match register length: 44 bytes for VCOM, 42 for others
+        ESP_LOGI(TAG, "Switching to Partial Refresh Mode");
+        // 发送局刷 LUTs
+        esp_lcd_panel_io_tx_param(io, IL0398_CMD_PANEL_SETTING, (uint8_t[]){0x3F}, 1);
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_VCOM, lut_20_vcom0_partial, 44);
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_WW, lut_21_ww_partial, 42);
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_BW, lut_22_bw_partial, 42);
@@ -362,9 +375,7 @@ esp_err_t esp_lcd_gdew042t2_set_mode(esp_lcd_panel_handle_t panel, gdew042t2_ref
         esp_lcd_panel_io_tx_param(io, IL0398_CMD_LUT_BB, lut_24_bb_partial, 42);
     }
     
-    // GxEPD2 calls PowerOn after switching LUTs (implied in _Init_Part/_Init_Full)
-    esp_lcd_panel_io_tx_param(io, IL0398_CMD_POWER_ON, NULL, 0); 
-    _wait_busy(epd);
+    epd->current_mode = mode;
 
     return ESP_OK;
 }

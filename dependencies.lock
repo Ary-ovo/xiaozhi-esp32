@@ -550,7 +550,7 @@ dependencies:
     - esp32c6
     version: 0.6.1
   espressif/esp_sccb_intf:
-    component_hash: 44dfa738680ccbc3705ae6940f59be603165f4f7e4d05c3eb5f433705fdc92be
+    component_hash: c071b189e49f40940722aea01a5489f873385cc39cd5b14012341135b85d1a9d
     dependencies:
     - name: idf
       require: private
@@ -558,7 +558,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 0.0.7
+    version: 0.0.8
   espressif/esp_video:
     component_hash: fbad1178f39cb5a81ed808c460c851b911a9858db833e2e667ada988022c0660
     dependencies:
@@ -738,8 +738,18 @@ dependencies:
     - esp32h4
     - linux
     version: 2.3.1
+  espressif/zlib:
+    component_hash: d901723af51f13fc8e5824f39f32239c847956e8fd951a05266588dc5cfbb9ae
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.3.1
   espressif2022/esp_emote_assets:
-    component_hash: f63f4682e138bdeef394b8a867cd1c5a5da3d5395b53d739765d38fd86bac14b
+    component_hash: 1f1ed784c66234e6643b7865f9b1e117bdc71cb5b6c2208b720ea485db76e53a
     dependencies:
     - name: idf
       require: private
@@ -747,7 +757,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 0.1.1
+    version: 0.1.2
   espressif2022/esp_emote_expression:
     component_hash: fce5c4210e5ea2116cec29b09494d0e21e67c56fc09a0222f2826091d7d0151c
     dependencies:
@@ -941,6 +951,7 @@ direct_dependencies:
 - espressif/iot_usbh_rndis
 - espressif/knob
 - espressif/led_strip
+- espressif/zlib
 - espressif2022/esp_emote_expression
 - espressif2022/image_player
 - idf
@@ -950,6 +961,6 @@ direct_dependencies:
 - waveshare/esp_lcd_sh8601
 - waveshare/esp_lcd_touch_cst9217
 - wvirgil123/sscma_client
-manifest_hash: 22cfe5cd66e1b325ffc6b9f665e63f03315861f639283ec390bfa7817be8a168
+manifest_hash: 2e18fdb362704b93bbc1502e5d6fc4dec4216f3a14248dbd47aad0960bfb6228
 target: esp32s3
 version: 2.0.0

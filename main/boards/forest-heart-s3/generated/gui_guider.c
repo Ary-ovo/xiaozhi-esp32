@@ -15,6 +15,7 @@
 void setup_ui(lv_ui *ui)
 {
     setup_scr_screen(ui);
+    setup_scr_screen_1(ui);
     lv_screen_load(ui->screen);
 }
 

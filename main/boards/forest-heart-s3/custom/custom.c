@@ -37,7 +37,10 @@
 static char* TAG = "LVGL Custom";
 
 lv_font_t* lv_font_zaozigongfangxinranti_92 = NULL;
+lv_font_t* lv_font_MFYueHei_22 = NULL;
+lv_font_t* lv_font_MFYueHei_20 = NULL;
 lv_font_t* lv_font_MFYueHei_18 = NULL;
+lv_font_t* lv_font_MFYueHei_12 = NULL;
 
 /**
  * Create a demo application
@@ -47,27 +50,54 @@ void custom_init(lv_ui *ui)
 {
     char path_buffer[64] = {0}; 
     
-    if (lv_fs_is_ready('S'))
+    if (lv_fs_is_ready(LVGL_FS_LETTER))
     {
         ESP_LOGI(TAG, "File System Ready");
     }else ESP_LOGE(TAG, "Fail! File System Not Found");
 
     memset(path_buffer, 0, sizeof(path_buffer));
-    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "zaozigongfangxinranti_92.bin"); // 假设文件名是这个
-    ESP_LOGI("Font", "Loading: %s", path_buffer); // [调试日志]
+    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "zaozigongfangxinranti_92.bin"); 
+    ESP_LOGI("Font", "Loading: %s", path_buffer); 
     lv_font_zaozigongfangxinranti_92 = lv_binfont_create(path_buffer);
     if (lv_font_zaozigongfangxinranti_92 == NULL) {
         ESP_LOGE("Font", "FAILED to load: %s", path_buffer);
-        lv_font_zaozigongfangxinranti_92 = (lv_font_t *)LV_FONT_DEFAULT; // 建议兜底
+        lv_font_zaozigongfangxinranti_92 = (lv_font_t *)LV_FONT_DEFAULT; 
     }
 
     memset(path_buffer, 0, sizeof(path_buffer));
-    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "MFYueHei_18.bin"); // 假设文件名是这个
-    ESP_LOGI("Font", "Loading: %s", path_buffer); // [调试日志]
+    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "MFYueHei_18.bin"); 
+    ESP_LOGI("Font", "Loading: %s", path_buffer); 
     lv_font_MFYueHei_18 =    lv_binfont_create(path_buffer);
     if (lv_font_MFYueHei_18 == NULL) {
         ESP_LOGE("Font", "FAILED to load: %s", path_buffer);
-        lv_font_MFYueHei_18 = (lv_font_t *)LV_FONT_DEFAULT; // 建议兜底
+        lv_font_MFYueHei_18 = (lv_font_t *)LV_FONT_DEFAULT; 
+    }
+
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "MFYueHei_12.bin"); 
+    ESP_LOGI("Font", "Loading: %s", path_buffer); 
+    lv_font_MFYueHei_12 =    lv_binfont_create(path_buffer);
+    if (lv_font_MFYueHei_12 == NULL) {
+        ESP_LOGE("Font", "FAILED to load: %s", path_buffer);
+        lv_font_MFYueHei_12 = (lv_font_t *)LV_FONT_DEFAULT; 
+    }
+
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "MFYueHei_20.bin"); 
+    ESP_LOGI("Font", "Loading: %s", path_buffer); 
+    lv_font_MFYueHei_20 =    lv_binfont_create(path_buffer);
+    if (lv_font_MFYueHei_20 == NULL) {
+        ESP_LOGE("Font", "FAILED to load: %s", path_buffer);
+        lv_font_MFYueHei_20 = (lv_font_t *)LV_FONT_DEFAULT; 
+    }
+
+    memset(path_buffer, 0, sizeof(path_buffer));
+    snprintf(path_buffer, sizeof(path_buffer), "%s%s", FONTS_PATH, "MFYueHei_22.bin"); 
+    ESP_LOGI("Font", "Loading: %s", path_buffer); 
+    lv_font_MFYueHei_22 =    lv_binfont_create(path_buffer);
+    if (lv_font_MFYueHei_22 == NULL) {
+        ESP_LOGE("Font", "FAILED to load: %s", path_buffer);
+        lv_font_MFYueHei_22 = (lv_font_t *)LV_FONT_DEFAULT; 
     }
 }
 

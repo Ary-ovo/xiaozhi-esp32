@@ -644,6 +644,12 @@ choice DISPLAY_STYLE
             || BOARD_TYPE_ESP_SENSAIRSHUTTLE
 endchoice
 
+config AFE_BUFFER_SIZE
+    int "Buffer of AFE RingBuffer size"
+    default 512
+    help
+        Buffer of AFE RingBuffer size
+
 choice WAKE_WORD_TYPE
     prompt "Wake Word Implementation Type"
     default USE_AFE_WAKE_WORD if (IDF_TARGET_ESP32S3 || IDF_TARGET_ESP32P4) && SPIRAM
