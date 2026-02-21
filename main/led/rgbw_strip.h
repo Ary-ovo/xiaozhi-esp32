@@ -41,9 +41,14 @@ public:
     void Breathe(RgbwColor low, RgbwColor high, int interval_ms = 50);
     void Scroll(RgbwColor low, RgbwColor high, int length = 3, int interval_ms = 100);
 
+    void SetPixelWithoutRefresh(uint8_t index, RgbwColor color);
+    void RefreshHardware();
+
     // 状态机响应
     void OnStateChanged() override;
 
+    uint8_t GetMaxLeds() const { return max_leds_; }
+    led_strip_handle_t GetHandle() const;
 private:
     // 内部使用的定时任务启动器
     void StartStripTask(int interval_ms, std::function<void()> cb);

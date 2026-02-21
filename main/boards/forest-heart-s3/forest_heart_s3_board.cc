@@ -10,6 +10,7 @@
 #include <esp_log.h>
 #include "driver/gpio.h"
 #include "tca9537.h"
+#include "rgb_weather.h"
 #include "power_save_timer.h"
 #include "mmw.h"
 #include "esp_lcd_gdew042t2.h"
@@ -165,6 +166,7 @@ private:
     RgbwStrip* rgbwstrip_ = nullptr;
     PowerSaveTimer* power_save_timer_;
     Button boot_button_;
+    std::unique_ptr<RgbWeather> rgbweather_;
     // 初始化 I2C 总线
     void InitializeI2c() {
         i2c_master_bus_config_t i2c_bus_cfg = {
@@ -276,6 +278,10 @@ private:
 
     void Init_RgbwStrip(void){
         rgbwstrip_ = new RgbwStrip(SK6812RGBW_DATA_PIN, SK6812RGBW_NUM);
+        rgbweather_ = std::make_unique<RgbWeather>(rgbwstrip_);
+        if (rgbweather_) {
+        rgbweather_->StartNightMoon(30, 1000, 0.8);
+        }
     }
 
     void InitializeButtons() {

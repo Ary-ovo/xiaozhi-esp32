@@ -248,3 +248,20 @@ void RgbwStrip::OnStateChanged() {
             break;
     }
 }
+
+led_strip_handle_t RgbwStrip::GetHandle() const {
+    return led_strip_;
+}
+
+// 仅仅把颜色写进 ESP-IDF 的底层 Buffer，绝对不发给硬件！
+void RgbwStrip::SetPixelWithoutRefresh(uint8_t index, RgbwColor color) {
+    if (index < max_leds_) {
+        colors_[index] = color;
+        led_strip_set_pixel_rgbw(led_strip_, index, color.red, color.green, color.blue, color.white);
+    }
+}
+
+// 一次性把 Buffer 里的数据全部推送到灯带
+void RgbwStrip::RefreshHardware() {
+    led_strip_refresh(led_strip_);
+}
