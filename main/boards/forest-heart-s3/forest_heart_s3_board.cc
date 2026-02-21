@@ -326,7 +326,7 @@ public:
         InitializeGDEW042T2Display();
         // // Init MicroWave Radar
         // Init_PresenSensor();
-
+        // Init RgbStrip
         Init_RgbwStrip();
     }
     
